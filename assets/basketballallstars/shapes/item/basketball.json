@@ -3,106 +3,83 @@
     "allAngles": true,
     "entityTextureMode": false
   },
-  "textureWidth": 16,
-  "textureHeight": 16,
+  "textureWidth": 32,
+  "textureHeight": 32,
   "textures": {
-    "leather": "game:block/clay/hardened/orange",
-    "seam": "game:block/clay/hardened/black"
+    "ball": "basketballallstars:item/basketball"
   },
   "elements": [
     {
       "name": "Core",
-      "from": [ -2.0, 0.0, -2.0 ],
-      "to": [ 2.0, 4.0, 2.0 ],
+      "from": [ 5.5, 0.0, 5.5 ],
+      "to": [ 10.5, 5.0, 10.5 ],
       "faces": {
-        "north": { "texture": "#leather", "uv": [ 4.0, 4.0, 8.0, 8.0 ] },
-        "east":  { "texture": "#leather", "uv": [ 4.0, 4.0, 8.0, 8.0 ] },
-        "south": { "texture": "#leather", "uv": [ 4.0, 4.0, 8.0, 8.0 ] },
-        "west":  { "texture": "#leather", "uv": [ 4.0, 4.0, 8.0, 8.0 ] },
-        "up":    { "texture": "#leather", "uv": [ 4.0, 4.0, 8.0, 8.0 ] },
-        "down":  { "texture": "#leather", "uv": [ 4.0, 4.0, 8.0, 8.0 ] }
+        "north": { "texture": "#ball", "uv": [ 0.0, 0.0, 32.0, 32.0 ] },
+        "east":  { "texture": "#ball", "uv": [ 0.0, 0.0, 32.0, 32.0 ] },
+        "south": { "texture": "#ball", "uv": [ 0.0, 0.0, 32.0, 32.0 ] },
+        "west":  { "texture": "#ball", "uv": [ 0.0, 0.0, 32.0, 32.0 ] },
+        "up":    { "texture": "#ball", "uv": [ 0.0, 0.0, 32.0, 32.0 ] },
+        "down":  { "texture": "#ball", "uv": [ 0.0, 0.0, 32.0, 32.0 ] }
       },
       "children": [
         {
           "name": "CapUp",
-          "from": [ 0.5, 4.0, 0.5 ],
-          "to": [ 3.5, 4.5, 3.5 ],
+          "from": [ 0.5, 5.0, 0.5 ],
+          "to": [ 4.5, 5.5, 4.5 ],
           "faces": {
-            "north": { "texture": "#leather", "uv": [ 5.0, 3.0, 7.0, 4.0 ] },
-            "east":  { "texture": "#leather", "uv": [ 5.0, 3.0, 7.0, 4.0 ] },
-            "south": { "texture": "#leather", "uv": [ 5.0, 3.0, 7.0, 4.0 ] },
-            "west":  { "texture": "#leather", "uv": [ 5.0, 3.0, 7.0, 4.0 ] },
-            "up":    { "texture": "#leather", "uv": [ 5.0, 5.0, 7.0, 7.0 ] }
+            "north": { "texture": "#ball", "uv": [ 4.0, 0.0, 28.0, 4.0 ] },
+            "east":  { "texture": "#ball", "uv": [ 4.0, 0.0, 28.0, 4.0 ] },
+            "south": { "texture": "#ball", "uv": [ 4.0, 0.0, 28.0, 4.0 ] },
+            "west":  { "texture": "#ball", "uv": [ 4.0, 0.0, 28.0, 4.0 ] },
+            "up":    { "texture": "#ball", "uv": [ 4.0, 4.0, 28.0, 28.0 ] }
           }
         },
         {
           "name": "CapNorth",
           "from": [ 0.5, 0.5, -0.5 ],
-          "to": [ 3.5, 3.5, 0.0 ],
+          "to": [ 4.5, 4.5, 0.0 ],
           "faces": {
-            "north": { "texture": "#leather", "uv": [ 5.0, 5.0, 7.0, 7.0 ] },
-            "east":  { "texture": "#leather", "uv": [ 4.0, 5.0, 5.0, 7.0 ] },
-            "west":  { "texture": "#leather", "uv": [ 7.0, 5.0, 8.0, 7.0 ] },
-            "up":    { "texture": "#leather", "uv": [ 5.0, 4.0, 7.0, 5.0 ] },
-            "down":  { "texture": "#leather", "uv": [ 5.0, 7.0, 7.0, 8.0 ] }
+            "north": { "texture": "#ball", "uv": [ 4.0, 4.0, 28.0, 28.0 ] },
+            "east":  { "texture": "#ball", "uv": [ 0.0, 4.0, 4.0, 28.0 ] },
+            "west":  { "texture": "#ball", "uv": [ 28.0, 4.0, 32.0, 28.0 ] },
+            "up":    { "texture": "#ball", "uv": [ 4.0, 0.0, 28.0, 4.0 ] },
+            "down":  { "texture": "#ball", "uv": [ 4.0, 28.0, 28.0, 32.0 ] }
           }
         },
         {
           "name": "CapSouth",
-          "from": [ 0.5, 0.5, 4.0 ],
-          "to": [ 3.5, 3.5, 4.5 ],
+          "from": [ 0.5, 0.5, 5.0 ],
+          "to": [ 4.5, 4.5, 5.5 ],
           "faces": {
-            "south": { "texture": "#leather", "uv": [ 5.0, 5.0, 7.0, 7.0 ] },
-            "east":  { "texture": "#leather", "uv": [ 7.0, 5.0, 8.0, 7.0 ] },
-            "west":  { "texture": "#leather", "uv": [ 4.0, 5.0, 5.0, 7.0 ] },
-            "up":    { "texture": "#leather", "uv": [ 5.0, 7.0, 7.0, 8.0 ] },
-            "down":  { "texture": "#leather", "uv": [ 5.0, 4.0, 7.0, 5.0 ] }
+            "south": { "texture": "#ball", "uv": [ 4.0, 4.0, 28.0, 28.0 ] },
+            "east":  { "texture": "#ball", "uv": [ 28.0, 4.0, 32.0, 28.0 ] },
+            "west":  { "texture": "#ball", "uv": [ 0.0, 4.0, 4.0, 28.0 ] },
+            "up":    { "texture": "#ball", "uv": [ 4.0, 28.0, 28.0, 32.0 ] },
+            "down":  { "texture": "#ball", "uv": [ 4.0, 0.0, 28.0, 4.0 ] }
           }
         },
         {
           "name": "CapWest",
           "from": [ -0.5, 0.5, 0.5 ],
-          "to": [ 0.0, 3.5, 3.5 ],
+          "to": [ 0.0, 4.5, 4.5 ],
           "faces": {
-            "west":  { "texture": "#leather", "uv": [ 5.0, 5.0, 7.0, 7.0 ] },
-            "north": { "texture": "#leather", "uv": [ 4.0, 5.0, 5.0, 7.0 ] },
-            "south": { "texture": "#leather", "uv": [ 7.0, 5.0, 8.0, 7.0 ] },
-            "up":    { "texture": "#leather", "uv": [ 4.0, 5.0, 5.0, 7.0 ] },
-            "down":  { "texture": "#leather", "uv": [ 4.0, 5.0, 5.0, 7.0 ] }
+            "west":  { "texture": "#ball", "uv": [ 4.0, 4.0, 28.0, 28.0 ] },
+            "north": { "texture": "#ball", "uv": [ 0.0, 4.0, 4.0, 28.0 ] },
+            "south": { "texture": "#ball", "uv": [ 28.0, 4.0, 32.0, 28.0 ] },
+            "up":    { "texture": "#ball", "uv": [ 0.0, 4.0, 4.0, 28.0 ] },
+            "down":  { "texture": "#ball", "uv": [ 0.0, 4.0, 4.0, 28.0 ] }
           }
         },
         {
           "name": "CapEast",
-          "from": [ 4.0, 0.5, 0.5 ],
-          "to": [ 4.5, 3.5, 3.5 ],
+          "from": [ 5.0, 0.5, 0.5 ],
+          "to": [ 5.5, 4.5, 4.5 ],
           "faces": {
-            "east":  { "texture": "#leather", "uv": [ 5.0, 5.0, 7.0, 7.0 ] },
-            "north": { "texture": "#leather", "uv": [ 7.0, 5.0, 8.0, 7.0 ] },
-            "south": { "texture": "#leather", "uv": [ 4.0, 5.0, 5.0, 7.0 ] },
-            "up":    { "texture": "#leather", "uv": [ 7.0, 5.0, 8.0, 7.0 ] },
-            "down":  { "texture": "#leather", "uv": [ 7.0, 5.0, 8.0, 7.0 ] }
-          }
-        },
-        {
-          "name": "HSeam",
-          "from": [ -0.52, 1.85, -0.52 ],
-          "to": [ 4.52, 2.15, 4.52 ],
-          "faces": {
-            "north": { "texture": "#seam", "uv": [ 0.0, 7.0, 16.0, 8.0 ] },
-            "east":  { "texture": "#seam", "uv": [ 0.0, 7.0, 16.0, 8.0 ] },
-            "south": { "texture": "#seam", "uv": [ 0.0, 7.0, 16.0, 8.0 ] },
-            "west":  { "texture": "#seam", "uv": [ 0.0, 7.0, 16.0, 8.0 ] }
-          }
-        },
-        {
-          "name": "VSeam",
-          "from": [ 1.85, -0.02, -0.52 ],
-          "to": [ 2.15, 4.02, 4.52 ],
-          "faces": {
-            "north": { "texture": "#seam", "uv": [ 7.0, 0.0, 8.0, 16.0 ] },
-            "south": { "texture": "#seam", "uv": [ 7.0, 0.0, 8.0, 16.0 ] },
-            "up":    { "texture": "#seam", "uv": [ 7.0, 0.0, 8.0, 16.0 ] },
-            "down":  { "texture": "#seam", "uv": [ 7.0, 0.0, 8.0, 16.0 ] }
+            "east":  { "texture": "#ball", "uv": [ 4.0, 4.0, 28.0, 28.0 ] },
+            "north": { "texture": "#ball", "uv": [ 28.0, 4.0, 32.0, 28.0 ] },
+            "south": { "texture": "#ball", "uv": [ 0.0, 4.0, 4.0, 28.0 ] },
+            "up":    { "texture": "#ball", "uv": [ 28.0, 4.0, 32.0, 28.0 ] },
+            "down":  { "texture": "#ball", "uv": [ 28.0, 4.0, 32.0, 28.0 ] }
           }
         }
       ]

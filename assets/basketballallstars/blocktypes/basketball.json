@@ -7,8 +7,7 @@
   },
   "shape": { "base": "basketballallstars:block/basketball" },
   "textures": {
-    "leather": { "base": "game:block/clay/hardened/orange" },
-    "seam": { "base": "game:block/clay/hardened/black" }
+    "ball": { "base": "basketballallstars:item/basketball" }
   },
   "blockmaterial": "Cloth",
   "sidesolid": {

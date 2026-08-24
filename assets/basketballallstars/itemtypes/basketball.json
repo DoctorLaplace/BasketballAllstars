@@ -5,8 +5,7 @@
   "maxStackSize": 1,
   "shape": { "base": "basketballallstars:item/basketball" },
   "textures": {
-    "leather": { "base": "game:block/clay/hardened/orange" },
-    "seam": { "base": "game:block/clay/hardened/black" }
+    "ball": { "base": "basketballallstars:item/basketball" }
   },
   "guiTransform": {
     "translation": { "x": 0, "y": 0, "z": 0 },
