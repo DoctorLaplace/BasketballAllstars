@@ -6,7 +6,8 @@
     "renderer": "Shape",
     "shape": { "base": "basketballallstars:entity/basketball" },
     "textures": {
-      "ball": { "base": "basketballallstars:item/basketball" }
+      "leather": { "base": "game:block/clay/hardened/orange" },
+      "seam": { "base": "game:block/clay/hardened/black" }
     },
     "size": 1.0,
     "behaviors": [

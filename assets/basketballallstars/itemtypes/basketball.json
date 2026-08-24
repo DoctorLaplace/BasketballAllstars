@@ -5,30 +5,31 @@
   "maxStackSize": 1,
   "shape": { "base": "basketballallstars:item/basketball" },
   "textures": {
-    "ball": { "base": "basketballallstars:item/basketball" }
+    "leather": { "base": "game:block/clay/hardened/orange" },
+    "seam": { "base": "game:block/clay/hardened/black" }
   },
   "guiTransform": {
     "translation": { "x": 0, "y": 0, "z": 0 },
     "rotation": { "x": 20, "y": -45, "z": 15 },
-    "origin": { "x": 0.0, "y": 0.125, "z": 0.0 },
+    "origin": { "x": 0.5, "y": 0.125, "z": 0.5 },
     "scale": 2.2
   },
   "fpHandTransform": {
     "translation": { "x": 0.0, "y": 0.0, "z": 0.0 },
     "rotation": { "x": 0, "y": 0, "z": 0 },
-    "origin": { "x": 0.0, "y": 0.125, "z": 0.0 },
+    "origin": { "x": 0.5, "y": 0.125, "z": 0.5 },
     "scale": 1.0
   },
   "tpHandTransform": {
     "translation": { "x": 0.0, "y": 0.0, "z": 0.0 },
     "rotation": { "x": 0, "y": 0, "z": 0 },
-    "origin": { "x": 0.0, "y": 0.125, "z": 0.0 },
+    "origin": { "x": 0.5, "y": 0.125, "z": 0.5 },
     "scale": 1.0
   },
   "groundTransform": {
     "translation": { "x": 0, "y": 0, "z": 0 },
     "rotation": { "x": 0, "y": 0, "z": 0 },
-    "origin": { "x": 0.0, "y": 0.125, "z": 0.0 },
+    "origin": { "x": 0.5, "y": 0.125, "z": 0.5 },
     "scale": 1.0
   },
   "creativeinventory": {
