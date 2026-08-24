@@ -58,6 +58,9 @@ namespace BasketballAllstars.Entities
                             ball.FiredBy = this;
                             ball.ProjectileStack = new ItemStack(ballItem, 1);
                             ball.Collectible = false;
+                            ball.IsDribbled = true;
+                            ball.Weight = 0f;
+                            ball.CollisionBox = new Cuboidf(0, 0, 0, 0, 0, 0);
                             ball.Pos.SetPos(GetDribblePos(0.05));
                             World.SpawnEntity(ball);
                             visualDribbleBall = ball;
@@ -134,7 +137,7 @@ namespace BasketballAllstars.Entities
                     BasketballAudioParticles.SpawnDribbleParticles(World, impactPos);
                 }
 
-                // Face nearest player when sparring
+                // Smoothly face nearest player when sparring
                 EntityPlayer? nearPlayer = World.GetNearestEntity(Pos.XYZ, 4.0f, 2.0f, e => e is EntityPlayer ep && ep.Alive) as EntityPlayer;
                 if (nearPlayer != null)
                 {
@@ -143,7 +146,9 @@ namespace BasketballAllstars.Entities
                     if (toPlayer.Length() > 0.1)
                     {
                         // 90 degree compensation for strawdummy model alignment
-                        Pos.Yaw = (float)Math.Atan2(toPlayer.X, toPlayer.Z) - (float)GameMath.PIHALF;
+                        float targetYaw = (float)Math.Atan2(toPlayer.X, toPlayer.Z) - (float)GameMath.PIHALF;
+                        float diff = GameMath.AngleRadDistance(Pos.Yaw, targetYaw);
+                        Pos.Yaw += diff * Math.Min(1f, dt * 5f);
                     }
                 }
             }

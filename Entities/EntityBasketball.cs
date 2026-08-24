@@ -35,6 +35,15 @@ namespace BasketballAllstars.Entities
         public float LifetimeSeconds { get; set; } = 0f;
         public bool IsScored { get; set; } = false;
         public bool InNetTransit { get; set; } = false;
+        public bool IsDribbled
+        {
+            get => WatchedAttributes.GetBool("isDribbled", false);
+            set
+            {
+                WatchedAttributes.SetBool("isDribbled", value);
+                WatchedAttributes.MarkAllDirty();
+            }
+        }
 
         private double netExitY = 0;
         private Vec3d netCenter = new Vec3d();
@@ -45,7 +54,7 @@ namespace BasketballAllstars.Entities
         protected Vec3d motionBeforeCollide = new Vec3d();
         private double prevY;
 
-        public override bool IsInteractable => true;
+        public override bool IsInteractable => !IsDribbled;
 
         public void StartNetTransit(Vec3d rimCenter)
         {
@@ -109,6 +118,12 @@ namespace BasketballAllstars.Entities
                 physics.CollisionYExtra = 0f;
             }
 
+            if (IsDribbled)
+            {
+                Weight = 0f;
+                CollisionBox = new Cuboidf(0, 0, 0, 0, 0, 0);
+            }
+
             prevY = Pos.Y;
         }
 
@@ -116,6 +131,12 @@ namespace BasketballAllstars.Entities
         {
             base.OnGameTick(dt);
             if (ShouldDespawn) return;
+
+            if (IsDribbled)
+            {
+                Pos.Motion.Set(0, 0, 0);
+                return;
+            }
 
             LifetimeSeconds += dt;
             EntityPos pos = Pos;
