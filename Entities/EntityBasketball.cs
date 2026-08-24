@@ -61,7 +61,7 @@ namespace BasketballAllstars.Entities
         public EntityBasketball()
         {
             CollisionBox = new Cuboidf(-0.15f, -0.15f, -0.15f, 0.15f, 0.15f, 0.15f);
-            SelectionBox = new Cuboidf(-0.20f, -0.20f, -0.20f, 0.20f, 0.20f, 0.20f);
+            SelectionBox = new Cuboidf(-0.25f, -0.25f, -0.25f, 0.25f, 0.25f, 0.25f);
         }
 
         public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
@@ -72,7 +72,7 @@ namespace BasketballAllstars.Entities
             {
                 CollisionBox = new Cuboidf(-0.15f, -0.15f, -0.15f, 0.15f, 0.15f, 0.15f);
             }
-            SelectionBox = new Cuboidf(-0.20f, -0.20f, -0.20f, 0.20f, 0.20f, 0.20f);
+            SelectionBox = new Cuboidf(-0.25f, -0.25f, -0.25f, 0.25f, 0.25f, 0.25f);
 
             msLaunch = World.ElapsedMilliseconds;
 
