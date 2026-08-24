@@ -48,6 +48,7 @@ namespace BasketballAllstars.Entities
         private double netExitY = 0;
         private Vec3d netCenter = new Vec3d();
         private float restTimeSeconds = 0f;
+        private float accumulatedPitch = 0f;
 
         protected bool beforeCollided;
         protected long msLaunch;
@@ -141,12 +142,19 @@ namespace BasketballAllstars.Entities
             LifetimeSeconds += dt;
             EntityPos pos = Pos;
 
-            // Spin animation while in flight
-            double speed = pos.Motion.Length();
-            if (speed > 0.01 && !InNetTransit)
+            // Physics-based directional rolling / spinning animation aligned with travel vector
+            double horizSpeed = Math.Sqrt(pos.Motion.X * pos.Motion.X + pos.Motion.Z * pos.Motion.Z);
+            double totalSpeed = pos.Motion.Length();
+
+            if (totalSpeed > 0.005 && !InNetTransit)
             {
-                pos.Pitch = (World.ElapsedMilliseconds / 250f) % GameMath.TWOPI;
-                pos.Yaw = (World.ElapsedMilliseconds / 300f) % GameMath.TWOPI;
+                if (horizSpeed > 0.003)
+                {
+                    pos.Yaw = (float)Math.Atan2(pos.Motion.X, pos.Motion.Z);
+                }
+                accumulatedPitch += (float)(totalSpeed * dt / 0.16);
+                pos.Pitch = accumulatedPitch % GameMath.TWOPI;
+                pos.Roll = 0f;
             }
 
             if (InNetTransit)
@@ -245,17 +253,15 @@ namespace BasketballAllstars.Entities
 
             if (!beforeCollided && World is IServerWorldAccessor)
             {
-                if (InNetTransit)
+                if (InNetTransit || IsDribbled)
                 {
-                    pos.Motion.Y = -0.065;
-                    WatchedAttributes.MarkAllDirty();
                     beforeCollided = true;
                     return;
                 }
 
                 double impactSpeed = motionBeforeCollide.Length();
 
-                if (impactSpeed > 0.04)
+                if (impactSpeed > 0.05)
                 {
                     BasketballAudioParticles.PlayBounceSound(World, pos.XYZ, (float)impactSpeed);
                     BasketballAudioParticles.SpawnBounceParticles(World, pos.XYZ);
@@ -266,18 +272,27 @@ namespace BasketballAllstars.Entities
                 {
                     if (motionBeforeCollide.Y < -0.02)
                     {
-                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
+                        double bounceY = -motionBeforeCollide.Y * 0.74;
+                        if (bounceY < 0.04)
+                        {
+                            pos.Motion.Y = 0;
+                        }
+                        else
+                        {
+                            pos.Motion.Y = bounceY;
+                        }
                     }
-                    pos.Motion.X *= 0.88;
-                    pos.Motion.Z *= 0.88;
+                    pos.Motion.X = motionBeforeCollide.X * 0.85;
+                    pos.Motion.Z = motionBeforeCollide.Z * 0.85;
                 }
                 else if (CollidedHorizontally)
                 {
                     pos.Motion.X = -motionBeforeCollide.X * 0.65;
                     pos.Motion.Z = -motionBeforeCollide.Z * 0.65;
+                    pos.Motion.Y = motionBeforeCollide.Y * 0.90;
                 }
 
-                if (pos.Motion.Length() < 0.02)
+                if (pos.Motion.Length() < 0.015)
                 {
                     pos.Motion.Set(0, 0, 0);
                 }
@@ -291,7 +306,7 @@ namespace BasketballAllstars.Entities
 
         private void CheckHoopTrigger()
         {
-            if (IsScored || InNetTransit) return;
+            if (IsScored || InNetTransit || IsDribbled) return;
 
             BlockPos ballBlockPos = Pos.AsBlockPos;
 
@@ -357,7 +372,7 @@ namespace BasketballAllstars.Entities
         public override void OnInteract(EntityAgent byEntity, ItemSlot slot, Vec3d hitPosition, EnumInteractMode mode)
         {
             base.OnInteract(byEntity, slot, hitPosition, mode);
-            if (!Collectible) return;
+            if (!Collectible || IsDribbled) return;
 
             if (mode == EnumInteractMode.Interact && byEntity is EntityPlayer entityPlayer && entityPlayer.Player is IServerPlayer sPlayer)
             {
@@ -369,7 +384,7 @@ namespace BasketballAllstars.Entities
 
         private void CheckPlayerOrDummyPickup()
         {
-            if (!Collectible || InNetTransit) return;
+            if (!Collectible || InNetTransit || IsDribbled) return;
 
             long timeSinceLaunch = World.ElapsedMilliseconds - msLaunch;
             if (timeSinceLaunch < 80) return;
@@ -391,7 +406,6 @@ namespace BasketballAllstars.Entities
             }
 
             // 2. Player receiving catch (in-flight passes, rebounds, and ground pickups)
-            // Calibrated strictly to player height + 10% (feet up to ~2.04m)
             EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ.AddCopy(0, -1.02, 0), 1.15f, 1.10f, e => e is EntityPlayer ep && ep.Alive) as EntityPlayer;
             if (nearestPlayer?.Player is IServerPlayer sPlayer)
             {
@@ -409,11 +423,16 @@ namespace BasketballAllstars.Entities
                         TryCollect(sPlayer);
                         return;
                     }
-                    // If thrown by self: catch on rebound, slow speed, or after 320ms in flight
-                    else if (isThrower && (timeSinceLaunch > 320 || Pos.Motion.Length() < 0.25 || beforeCollided))
+                    // If thrown by self: allow ball to travel and rebound before auto-collecting
+                    else if (isThrower)
                     {
-                        TryCollect(sPlayer);
-                        return;
+                        if (timeSinceLaunch < 250) return;
+
+                        if (timeSinceLaunch > 450 || (OnGround && Pos.Motion.Length() < 0.12) || (beforeCollided && Pos.Motion.Y < 0 && relY >= 0.50))
+                        {
+                            TryCollect(sPlayer);
+                            return;
+                        }
                     }
                 }
             }
