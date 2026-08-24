@@ -19,7 +19,7 @@ namespace BasketballAllstars.Systems
                 pos.X, pos.Y, pos.Z,
                 null,
                 pitch,
-                14f,
+                21f,
                 0.65f
             );
         }
@@ -35,7 +35,7 @@ namespace BasketballAllstars.Systems
                 pos.X, pos.Y, pos.Z,
                 null,
                 pitch,
-                18f,
+                27f,
                 volume
             );
         }
@@ -47,7 +47,7 @@ namespace BasketballAllstars.Systems
                 pos.X, pos.Y, pos.Z,
                 null,
                 false,
-                14f,
+                21f,
                 1.05f
             );
         }
@@ -59,7 +59,7 @@ namespace BasketballAllstars.Systems
                 pos.X, pos.Y, pos.Z,
                 null,
                 false,
-                14f,
+                21f,
                 1.0f
             );
         }
@@ -71,7 +71,7 @@ namespace BasketballAllstars.Systems
                 pos.X, pos.Y, pos.Z,
                 null,
                 false,
-                22f,
+                33f,
                 1.1f
             );
         }
@@ -83,47 +83,79 @@ namespace BasketballAllstars.Systems
                 rimPos.X, rimPos.Y, rimPos.Z,
                 null,
                 false,
-                36f,
+                54f,
                 1.2f
             );
         }
 
         public static void PlayHoopScoreSounds(IWorldAccessor world, Vec3d rimPos, bool isDunk)
         {
-            // Swish & ball hit basket sound (emanating directly from hoop ring, range 20m)
+            // Swish & ball hit basket sound (emanating directly from hoop ring, range 30m)
             world.PlaySoundAt(
                 new AssetLocation("basketballallstars:sounds/ballhitbasket"),
                 rimPos.X, rimPos.Y, rimPos.Z,
                 null,
                 false,
-                20f,
-                0.90f
+                30f,
+                0.95f
             );
 
-            // Airhorns celebratory fanfare (emanating from hoop, range 26m)
+            // Airhorns celebratory fanfare (emanating from hoop, range 39m)
             world.PlaySoundAt(
                 new AssetLocation("basketballallstars:sounds/airhorns"),
                 rimPos.X, rimPos.Y, rimPos.Z,
                 null,
                 false,
-                26f,
-                0.70f
+                39f,
+                0.80f
             );
 
-            // Stadium crowd cheering (softer background celebration, range 22m)
-            world.PlaySoundAt(
-                new AssetLocation("basketballallstars:sounds/crowdcheer"),
-                rimPos.X, rimPos.Y, rimPos.Z,
-                null,
-                false,
-                22f,
-                0.28f
-            );
+            // Stadium crowd cheering: plays globally for all players within 50 blocks of the scored hoop
+            PlayCrowdCheer(world, rimPos);
 
             // Slam dunk rattling the backboard
             if (isDunk)
             {
                 PlayBackboardRattle(world, rimPos);
+            }
+        }
+
+        public static void PlayCrowdCheer(IWorldAccessor world, Vec3d rimPos)
+        {
+            if (world is IServerWorldAccessor serverWorld)
+            {
+                foreach (IServerPlayer player in serverWorld.AllOnlinePlayers)
+                {
+                    if (player.Entity == null) continue;
+                    double dist = player.Entity.Pos.XYZ.DistanceTo(rimPos);
+                    if (dist <= 50.0)
+                    {
+                        // Plays centered on player as global ambient stadium celebration
+                        serverWorld.PlaySoundAt(
+                            new AssetLocation("basketballallstars:sounds/crowdcheer"),
+                            player.Entity.Pos.X, player.Entity.Pos.Y, player.Entity.Pos.Z,
+                            null,
+                            false,
+                            32f,
+                            0.34f
+                        );
+                    }
+                }
+            }
+            else if (world is IClientWorldAccessor clientWorld)
+            {
+                IPlayer localPlayer = clientWorld.Player;
+                if (localPlayer?.Entity != null && localPlayer.Entity.Pos.XYZ.DistanceTo(rimPos) <= 50.0)
+                {
+                    clientWorld.PlaySoundAt(
+                        new AssetLocation("basketballallstars:sounds/crowdcheer"),
+                        localPlayer.Entity.Pos.X, localPlayer.Entity.Pos.Y, localPlayer.Entity.Pos.Z,
+                        null,
+                        false,
+                        32f,
+                        0.34f
+                    );
+                }
             }
         }
 
@@ -134,7 +166,7 @@ namespace BasketballAllstars.Systems
                 clashPos.X, clashPos.Y, clashPos.Z,
                 null,
                 false,
-                48f,
+                72f,
                 1.15f
             );
         }
