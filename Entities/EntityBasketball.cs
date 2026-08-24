@@ -218,12 +218,6 @@ namespace BasketballAllstars.Entities
             Die();
         }
 
-        public void CaptureInitialLaunchMotion()
-        {
-            motionBeforeCollide.Set(Pos.Motion.X, Pos.Motion.Y, Pos.Motion.Z);
-            msLaunch = World.ElapsedMilliseconds;
-        }
-
         public override void OnCollided()
         {
             EntityPos pos = Pos;
@@ -238,38 +232,28 @@ namespace BasketballAllstars.Entities
                     return;
                 }
 
-                // Determine actual incoming impact velocity
-                double incomingSpeed = motionBeforeCollide.Length();
-                if (incomingSpeed < 0.02)
-                {
-                    incomingSpeed = pos.Motion.Length();
-                }
+                double impactSpeed = motionBeforeCollide.Length();
 
-                if (incomingSpeed > 0.04)
+                if (impactSpeed > 0.04)
                 {
-                    BasketballAudioParticles.PlayBounceSound(World, pos.XYZ, (float)incomingSpeed);
+                    BasketballAudioParticles.PlayBounceSound(World, pos.XYZ, (float)impactSpeed);
                     BasketballAudioParticles.SpawnBounceParticles(World, pos.XYZ);
                 }
 
                 // Restitution physics (Floor / Wall rebound)
                 if (CollidedVertically)
                 {
-                    double incomingY = motionBeforeCollide.Y < -0.02 ? motionBeforeCollide.Y : (pos.Y - prevY);
-                    if (incomingY < -0.02)
+                    if (motionBeforeCollide.Y < -0.02)
                     {
-                        double bounceY = -incomingY * 0.76;
-                        pos.Motion.Y = Math.Clamp(bounceY, 0.12, 1.20);
-                        pos.Y += 0.04; // Nudge upwards to clear ground voxel and prevent stuck double-collision
+                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
                     }
-                    pos.Motion.X = motionBeforeCollide.X * 0.88;
-                    pos.Motion.Z = motionBeforeCollide.Z * 0.88;
+                    pos.Motion.X *= 0.88;
+                    pos.Motion.Z *= 0.88;
                 }
                 else if (CollidedHorizontally)
                 {
-                    pos.Motion.X = -motionBeforeCollide.X * 0.70;
-                    pos.Motion.Z = -motionBeforeCollide.Z * 0.70;
-                    pos.X += (pos.Motion.X > 0 ? 0.03 : -0.03);
-                    pos.Z += (pos.Motion.Z > 0 ? 0.03 : -0.03);
+                    pos.Motion.X = -motionBeforeCollide.X * 0.65;
+                    pos.Motion.Z = -motionBeforeCollide.Z * 0.65;
                 }
 
                 if (pos.Motion.Length() < 0.02)
@@ -277,7 +261,6 @@ namespace BasketballAllstars.Entities
                     pos.Motion.Set(0, 0, 0);
                 }
 
-                motionBeforeCollide.Set(pos.Motion.X, pos.Motion.Y, pos.Motion.Z);
                 WatchedAttributes.MarkAllDirty();
                 beforeCollided = true;
             }
@@ -343,9 +326,11 @@ namespace BasketballAllstars.Entities
             {
                 beHoop.ScoreBasket(scorerPlayer, false);
             }
-
-            BasketballAudioParticles.PlayHoopScoreSounds(World, rimCenter, false);
-            BasketballAudioParticles.SpawnHoopCelebrationParticles(World, rimCenter);
+            else
+            {
+                BasketballAudioParticles.PlayHoopScoreSounds(World, rimCenter, false);
+                BasketballAudioParticles.SpawnHoopCelebrationParticles(World, rimCenter);
+            }
         }
 
         public override void OnInteract(EntityAgent byEntity, ItemSlot slot, Vec3d hitPosition, EnumInteractMode mode)
@@ -404,15 +389,10 @@ namespace BasketballAllstars.Entities
                         return;
                     }
                     // If thrown by self: catch on rebound, slow speed, or after 320ms in flight
-                    else if (isThrower)
+                    else if (isThrower && (timeSinceLaunch > 320 || Pos.Motion.Length() < 0.25 || beforeCollided))
                     {
-                        if (timeSinceLaunch < 200) return;
-
-                        if (timeSinceLaunch > 320 || Pos.Motion.Length() < 0.20 || (beforeCollided && relY >= 0.50))
-                        {
-                            TryCollect(sPlayer);
-                            return;
-                        }
+                        TryCollect(sPlayer);
+                        return;
                     }
                 }
             }

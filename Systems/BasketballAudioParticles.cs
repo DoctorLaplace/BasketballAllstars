@@ -90,34 +90,34 @@ namespace BasketballAllstars.Systems
 
         public static void PlayHoopScoreSounds(IWorldAccessor world, Vec3d rimPos, bool isDunk)
         {
-            // Swish & ball hit basket sound (fixed pitch)
+            // Swish & ball hit basket sound (emanating directly from hoop ring, range 20m)
             world.PlaySoundAt(
                 new AssetLocation("basketballallstars:sounds/ballhitbasket"),
                 rimPos.X, rimPos.Y, rimPos.Z,
                 null,
                 false,
-                28f,
-                1.15f
+                20f,
+                0.90f
             );
 
-            // Airhorns celebratory fanfare (fixed pitch)
+            // Airhorns celebratory fanfare (emanating from hoop, range 26m)
             world.PlaySoundAt(
                 new AssetLocation("basketballallstars:sounds/airhorns"),
                 rimPos.X, rimPos.Y, rimPos.Z,
                 null,
                 false,
-                52f,
-                1.2f
+                26f,
+                0.70f
             );
 
-            // Stadium crowd cheering (70% volume, softer background celebration)
+            // Stadium crowd cheering (softer background celebration, range 22m)
             world.PlaySoundAt(
                 new AssetLocation("basketballallstars:sounds/crowdcheer"),
                 rimPos.X, rimPos.Y, rimPos.Z,
                 null,
                 false,
-                28f,
-                0.34f
+                22f,
+                0.28f
             );
 
             // Slam dunk rattling the backboard
