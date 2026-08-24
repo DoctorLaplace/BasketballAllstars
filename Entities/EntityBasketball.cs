@@ -38,6 +38,7 @@ namespace BasketballAllstars.Entities
 
         private double netExitY = 0;
         private Vec3d netCenter = new Vec3d();
+        private float restTimeSeconds = 0f;
 
         protected bool beforeCollided;
         protected long msLaunch;
@@ -85,9 +86,21 @@ namespace BasketballAllstars.Entities
                 if (firedById != 0) FiredBy = Api.World.GetEntityById(firedById);
             }
 
-            if (ProjectileStack?.Collectible != null)
+            if (World != null)
             {
-                ProjectileStack.ResolveBlockOrItem(World);
+                if (ProjectileStack == null)
+                {
+                    Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
+                    if (ballItem != null)
+                    {
+                        ProjectileStack = new ItemStack(ballItem, 1);
+                    }
+                }
+
+                if (ProjectileStack != null)
+                {
+                    ProjectileStack.ResolveBlockOrItem(World);
+                }
             }
 
             var physics = GetBehavior<EntityBehaviorPassivePhysics>();
@@ -139,16 +152,70 @@ namespace BasketballAllstars.Entities
             {
                 CheckHoopTrigger();
                 CheckPlayerOrDummyPickup();
+                CheckGroundRestConversion(dt);
 
-                if (LifetimeSeconds > 300f)
+                if (LifetimeSeconds > 600f)
                 {
-                    Die();
+                    ConvertToPlacedBlock();
                 }
             }
 
             beforeCollided = false;
             motionBeforeCollide.Set(pos.Motion.X, pos.Motion.Y, pos.Motion.Z);
             prevY = pos.Y;
+        }
+
+        private void CheckGroundRestConversion(float dt)
+        {
+            if (InNetTransit) return;
+
+            double speed = Pos.Motion.Length();
+            if (OnGround && speed < 0.04)
+            {
+                restTimeSeconds += dt;
+                if (restTimeSeconds >= 45f)
+                {
+                    ConvertToPlacedBlock();
+                }
+            }
+            else
+            {
+                restTimeSeconds = 0f;
+            }
+        }
+
+        public void ConvertToPlacedBlock()
+        {
+            if (World == null || World.Side != EnumAppSide.Server) return;
+
+            BlockPos blockPos = Pos.AsBlockPos;
+            Block bballBlock = World.GetBlock(new AssetLocation("basketballallstars:basketball"));
+
+            if (bballBlock != null)
+            {
+                Block curBlock = World.BlockAccessor.GetBlock(blockPos);
+                if (!curBlock.IsReplacableBy(bballBlock))
+                {
+                    blockPos = blockPos.UpCopy();
+                    curBlock = World.BlockAccessor.GetBlock(blockPos);
+                }
+
+                if (curBlock.IsReplacableBy(bballBlock))
+                {
+                    World.BlockAccessor.SetBlock(bballBlock.BlockId, blockPos);
+                    World.BlockAccessor.TriggerNeighbourBlockUpdate(blockPos);
+                    Die();
+                    return;
+                }
+            }
+
+            // Fallback: spawn dropped item stack
+            Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
+            if (ballItem != null)
+            {
+                World.SpawnItemEntity(new ItemStack(ballItem, 1), Pos.XYZ);
+            }
+            Die();
         }
 
         public override void OnCollided()
@@ -159,131 +226,109 @@ namespace BasketballAllstars.Entities
             {
                 if (InNetTransit)
                 {
-                    // Ignore collisions while inside the net ropes
                     pos.Motion.Y = -0.065;
                     WatchedAttributes.MarkAllDirty();
                     beforeCollided = true;
                     return;
                 }
 
-                float strength = GameMath.Clamp((float)motionBeforeCollide.Length() * 3, 0, 1);
+                double impactSpeed = motionBeforeCollide.Length();
 
-                if (CollidedHorizontally)
+                if (impactSpeed > 0.04)
                 {
-                    float xdir = pos.Motion.X == 0 ? -1 : 1;
-                    float zdir = pos.Motion.Z == 0 ? -1 : 1;
-
-                    // Wall bounce restitution (85% speed retention, was 70%)
-                    pos.Motion.X = xdir * motionBeforeCollide.X * 0.85f;
-                    pos.Motion.Z = zdir * motionBeforeCollide.Z * 0.85f;
-
-                    if (strength > 0.05f)
-                    {
-                        BasketballAudioParticles.PlayBounceSound(World, Pos.XYZ, strength);
-                    }
+                    BasketballAudioParticles.PlayBounceSound(World, pos.XYZ, (float)impactSpeed);
+                    BasketballAudioParticles.SpawnBounceParticles(World, pos.XYZ);
                 }
 
-                if (CollidedVertically && motionBeforeCollide.Y <= 0)
+                // Restitution physics (Floor / Wall rebound)
+                if (CollidedVertically)
                 {
-                    if (Math.Abs(motionBeforeCollide.Y) > 0.015)
+                    if (motionBeforeCollide.Y < -0.02)
                     {
-                        // Vertical bounce restitution (86% height energy retention, was 72%)
-                        pos.Motion.Y = -motionBeforeCollide.Y * 0.86f;
-
-                        // Horizontal momentum retention during ground bounce (95% speed retention, was 88%)
-                        pos.Motion.X = motionBeforeCollide.X * 0.95f;
-                        pos.Motion.Z = motionBeforeCollide.Z * 0.95f;
-
-                        // Nudge upward slightly to prevent sticking inside floor block
-                        pos.Y += 0.025;
-
-                        BasketballAudioParticles.PlayBounceSound(World, Pos.XYZ, (float)Math.Abs(motionBeforeCollide.Y) * 2.0f);
-                        BasketballAudioParticles.SpawnBounceParticles(World, Pos.XYZ);
+                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
                     }
-                    else
-                    {
-                        pos.Motion.Y = 0;
-                        pos.Motion.X = motionBeforeCollide.X * 0.94f;
-                        pos.Motion.Z = motionBeforeCollide.Z * 0.94f;
-                    }
+                    pos.Motion.X *= 0.88;
+                    pos.Motion.Z *= 0.88;
+                }
+                else if (CollidedHorizontally)
+                {
+                    pos.Motion.X = -motionBeforeCollide.X * 0.65;
+                    pos.Motion.Z = -motionBeforeCollide.Z * 0.65;
+                }
+
+                if (pos.Motion.Length() < 0.02)
+                {
+                    pos.Motion.Set(0, 0, 0);
                 }
 
                 WatchedAttributes.MarkAllDirty();
+                beforeCollided = true;
             }
 
-            beforeCollided = true;
+            base.OnCollided();
         }
 
         private void CheckHoopTrigger()
         {
-            if (IsScored) return;
+            if (IsScored || InNetTransit) return;
 
-            int minX = (int)Math.Floor(Pos.X - 1.5);
-            int maxX = (int)Math.Floor(Pos.X + 1.5);
-            int minY = (int)Math.Floor(Pos.Y - 1.5);
-            int maxY = (int)Math.Floor(Pos.Y + 1.5);
-            int minZ = (int)Math.Floor(Pos.Z - 1.5);
-            int maxZ = (int)Math.Floor(Pos.Z + 1.5);
+            BlockPos ballBlockPos = Pos.AsBlockPos;
 
-            for (int x = minX; x <= maxX; x++)
+            for (int dx = -1; dx <= 1; dx++)
             {
-                for (int y = minY; y <= maxY; y++)
+                for (int dy = -1; dy <= 1; dy++)
                 {
-                    for (int z = minZ; z <= maxZ; z++)
+                    for (int dz = -1; dz <= 1; dz++)
                     {
-                        BlockPos checkPos = new BlockPos(x, y, z, Pos.Dimension);
+                        BlockPos checkPos = ballBlockPos.AddCopy(dx, dy, dz);
                         Block block = World.BlockAccessor.GetBlock(checkPos);
-                        if (block is BlockHoop hoopBlock)
+
+                        if (block is BlockHoop hoop)
                         {
-                            Vec3d rimCenter = hoopBlock.GetRimCenter(checkPos);
-                            double dx = Pos.X - rimCenter.X;
-                            double dz = Pos.Z - rimCenter.Z;
-                            double horizDist = Math.Sqrt(dx * dx + dz * dz);
+                            Vec3d rimCenter = hoop.GetRimCenter(checkPos);
+                            Vec3d ballPos = Pos.XYZ;
 
-                            double rimY = rimCenter.Y;
+                            double horizDist = Math.Sqrt(Math.Pow(ballPos.X - rimCenter.X, 2) + Math.Pow(ballPos.Z - rimCenter.Z, 2));
+                            double vertDist = ballPos.Y - rimCenter.Y;
 
-                            // Subtle gravity pull towards the center of the hoop within 1 block radius (0.95m) above the hoop:
-                            if (horizDist <= 0.95 && horizDist > 0.02 && Pos.Y >= rimY - 0.10 && Pos.Y <= rimY + 1.25)
+                            // Gentle radial rim gravity assist (within 0.95m above rim)
+                            if (horizDist < 0.95 && vertDist > 0.15 && vertDist < 0.90 && Pos.Motion.Y < 0)
                             {
-                                double pullRatio = (0.95 - horizDist) / 0.95;
-                                double subtleGravity = pullRatio * 0.015;
-                                Pos.Motion.X -= (dx / horizDist) * subtleGravity;
-                                Pos.Motion.Z -= (dz / horizDist) * subtleGravity;
-
-                                // Mild horizontal damping within the inner zone directly above the hoop net
-                                if (horizDist <= 0.55 && Pos.Motion.Y < 0.20)
+                                Vec3d toCenter = rimCenter.SubCopy(ballPos);
+                                toCenter.Y = 0;
+                                if (toCenter.Length() > 0.01)
                                 {
-                                    double horizSpeed = Math.Sqrt(Pos.Motion.X * Pos.Motion.X + Pos.Motion.Z * Pos.Motion.Z);
-                                    const double minSpeed = 0.035;
-                                    if (horizSpeed > minSpeed)
-                                    {
-                                        double newSpeed = Math.Max(minSpeed, horizSpeed * 0.92);
-                                        double factor = newSpeed / horizSpeed;
-                                        Pos.Motion.X *= factor;
-                                        Pos.Motion.Z *= factor;
-                                    }
+                                    toCenter.Normalize();
+                                    Pos.Motion.X += toCenter.X * 0.015;
+                                    Pos.Motion.Z += toCenter.Z * 0.015;
                                 }
                             }
 
-                            // If the ball hits, enters, or rests anywhere on the top of the hoop rim:
-                            // Start net transit, score the basket, and drop through smoothly!
-                            if (horizDist < 0.52 && Pos.Y >= rimY - 0.25 && Pos.Y <= rimY + 0.65)
+                            // Clean score detection (ball passes downward through rim cylinder)
+                            if (horizDist <= 0.45 && prevY >= rimCenter.Y - 0.05 && ballPos.Y <= rimCenter.Y + 0.15 && Pos.Motion.Y < -0.01)
                             {
-                                if (Pos.Motion.Y <= 0.08 || beforeCollided || (prevY >= rimY && Pos.Y < rimY))
-                                {
-                                    var beHoop = World.BlockAccessor.GetBlockEntity(checkPos) as BlockEntityHoop;
-                                    IServerPlayer? throwerPlayer = (FiredBy as EntityPlayer)?.Player as IServerPlayer;
-
-                                    beHoop?.ScoreBasket(throwerPlayer, isDunk: false);
-
-                                    StartNetTransit(rimCenter);
-                                    return;
-                                }
+                                ScoreBasket(checkPos, rimCenter);
+                                return;
                             }
                         }
                     }
                 }
             }
+        }
+
+        private void ScoreBasket(BlockPos hoopPos, Vec3d rimCenter)
+        {
+            StartNetTransit(rimCenter);
+
+            IServerPlayer? scorerPlayer = (FiredBy as EntityPlayer)?.Player as IServerPlayer;
+
+            if (World.BlockAccessor.GetBlockEntity(hoopPos) is BlockEntityHoop beHoop)
+            {
+                beHoop.ScoreBasket(scorerPlayer, false);
+            }
+
+            BasketballAudioParticles.PlayHoopScoreSounds(World, rimCenter, false);
+            BasketballAudioParticles.SpawnHoopCelebrationParticles(World, rimCenter);
         }
 
         public override void OnInteract(EntityAgent byEntity, ItemSlot slot, Vec3d hitPosition, EnumInteractMode mode)
@@ -328,15 +373,15 @@ namespace BasketballAllstars.Entities
             if (nearestPlayer?.Player is IServerPlayer sPlayer)
             {
                 double playerHeight = nearestPlayer.CollisionBox?.Y2 ?? 1.85;
-                double maxCatchHeight = playerHeight * 1.10; // Exact Height + 10%
+                double maxCatchHeight = playerHeight * 1.10;
                 double relY = Pos.Y - nearestPlayer.Pos.Y;
 
                 if (relY >= -0.10 && relY <= maxCatchHeight)
                 {
-                    bool isThrower = FiredBy?.EntityId == nearestPlayer.EntityId;
+                    bool isThrower = FiredBy != null && FiredBy.EntityId == nearestPlayer.EntityId;
 
-                    // If thrown by someone else (pass from dummy or teammate): catch in mid-air
-                    if (!isThrower && timeSinceLaunch > 100)
+                    // If thrown by someone else: immediate catch
+                    if (!isThrower)
                     {
                         TryCollect(sPlayer);
                         return;
@@ -370,6 +415,7 @@ namespace BasketballAllstars.Entities
             base.ToBytes(writer, forClient);
             writer.Write(beforeCollided);
             writer.Write(IsScored);
+            writer.Write(restTimeSeconds);
             bool hasStack = ProjectileStack != null;
             writer.Write(hasStack);
             if (hasStack)
@@ -383,6 +429,7 @@ namespace BasketballAllstars.Entities
             base.FromBytes(reader, fromServer);
             beforeCollided = reader.ReadBoolean();
             IsScored = reader.ReadBoolean();
+            restTimeSeconds = reader.ReadSingle();
             bool hasStack = reader.ReadBoolean();
             if (hasStack)
             {
