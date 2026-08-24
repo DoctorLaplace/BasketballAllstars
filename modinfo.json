@@ -5,11 +5,10 @@
   "authors": [
     "DoctorLaplace"
   ],
-  "description": "High-octane basketball mechanics featuring charged leaps, dunk arcs, mid-air QTE parry duels, ground steals, hoop celebrations, and RogueStory progression synergy.",
+  "description": "High-octane basketball mechanics featuring charged leaps, dunk arcs, mid-air QTE parry duels, ground steals, hoop celebrations, and practice dummies.",
   "version": "1.0.0",
   "dependencies": {
     "game": "1.22.0",
-    "survival": "1.22.0",
-    "roguestory": "2.0.4"
+    "survival": "1.22.0"
   }
 }

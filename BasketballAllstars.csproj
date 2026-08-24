@@ -57,11 +57,7 @@
     </Reference>
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\RogueStory\RogueStory.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-  </ItemGroup>
+
 
   <ItemGroup>
     <Content Include="modinfo.json">
