@@ -35,15 +35,6 @@ namespace BasketballAllstars.Entities
         public float LifetimeSeconds { get; set; } = 0f;
         public bool IsScored { get; set; } = false;
         public bool InNetTransit { get; set; } = false;
-        public bool IsDribbled
-        {
-            get => WatchedAttributes.GetBool("isDribbled", false);
-            set
-            {
-                WatchedAttributes.SetBool("isDribbled", value);
-                WatchedAttributes.MarkAllDirty();
-            }
-        }
 
         private double netExitY = 0;
         private Vec3d netCenter = new Vec3d();
@@ -54,7 +45,7 @@ namespace BasketballAllstars.Entities
         protected Vec3d motionBeforeCollide = new Vec3d();
         private double prevY;
 
-        public override bool IsInteractable => !IsDribbled;
+        public override bool IsInteractable => true;
 
         public void StartNetTransit(Vec3d rimCenter)
         {
@@ -69,8 +60,8 @@ namespace BasketballAllstars.Entities
 
         public EntityBasketball()
         {
-            CollisionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
-            SelectionBox = new Cuboidf(-0.25f, -0.05f, -0.25f, 0.25f, 0.45f, 0.25f);
+            CollisionBox = new Cuboidf(-0.15f, -0.15f, -0.15f, 0.15f, 0.15f, 0.15f);
+            SelectionBox = new Cuboidf(-0.20f, -0.20f, -0.20f, 0.20f, 0.20f, 0.20f);
         }
 
         public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
@@ -79,9 +70,9 @@ namespace BasketballAllstars.Entities
 
             if (CollisionBox == null)
             {
-                CollisionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
+                CollisionBox = new Cuboidf(-0.15f, -0.15f, -0.15f, 0.15f, 0.15f, 0.15f);
             }
-            SelectionBox = new Cuboidf(-0.25f, -0.05f, -0.25f, 0.25f, 0.45f, 0.25f);
+            SelectionBox = new Cuboidf(-0.20f, -0.20f, -0.20f, 0.20f, 0.20f, 0.20f);
 
             msLaunch = World.ElapsedMilliseconds;
 
@@ -118,12 +109,6 @@ namespace BasketballAllstars.Entities
                 physics.CollisionYExtra = 0f;
             }
 
-            if (IsDribbled)
-            {
-                Weight = 0f;
-                CollisionBox = new Cuboidf(0, 0, 0, 0, 0, 0);
-            }
-
             prevY = Pos.Y;
         }
 
@@ -132,14 +117,16 @@ namespace BasketballAllstars.Entities
             base.OnGameTick(dt);
             if (ShouldDespawn) return;
 
-            if (IsDribbled)
-            {
-                Pos.Motion.Set(0, 0, 0);
-                return;
-            }
-
             LifetimeSeconds += dt;
             EntityPos pos = Pos;
+
+            // Spin animation while in flight
+            double speed = pos.Motion.Length();
+            if (speed > 0.01 && !InNetTransit)
+            {
+                pos.Pitch = (World.ElapsedMilliseconds / 250f) % GameMath.TWOPI;
+                pos.Yaw = (World.ElapsedMilliseconds / 300f) % GameMath.TWOPI;
+            }
 
             if (InNetTransit)
             {

@@ -58,9 +58,6 @@ namespace BasketballAllstars.Entities
                             ball.FiredBy = this;
                             ball.ProjectileStack = new ItemStack(ballItem, 1);
                             ball.Collectible = false;
-                            ball.IsDribbled = true;
-                            ball.Weight = 0f;
-                            ball.CollisionBox = new Cuboidf(0, 0, 0, 0, 0, 0);
                             ball.Pos.SetPos(GetDribblePos(0.05));
                             World.SpawnEntity(ball);
                             visualDribbleBall = ball;
@@ -118,13 +115,15 @@ namespace BasketballAllstars.Entities
 
                 // Dribble cycle: 380ms per full bounce
                 double cycleFraction = ((nowMs % 380) / 380.0);
-                // Parabolic bounce: peaks at 0.70m, hits floor at 0.05m
-                double bounceHeight = 0.05 + Math.Sin(cycleFraction * Math.PI) * 0.65;
+                // Parabolic bounce: peaks at 0.70m, hits floor at 0.15m (center of 0.30m ball)
+                double bounceHeight = 0.15 + Math.Sin(cycleFraction * Math.PI) * 0.55;
 
                 if (visualDribbleBall != null && visualDribbleBall.Alive)
                 {
                     Vec3d ballPos = GetDribblePos(bounceHeight);
                     visualDribbleBall.Pos.SetPos(ballPos);
+                    visualDribbleBall.Pos.Yaw = Pos.Yaw;
+                    visualDribbleBall.Pos.Pitch = (float)((nowMs / 180.0) % GameMath.TWOPI);
                     visualDribbleBall.Pos.Motion.Set(0, 0, 0);
                     visualDribbleBall.WatchedAttributes.MarkAllDirty();
                 }
@@ -132,12 +131,12 @@ namespace BasketballAllstars.Entities
                 if (nowMs - lastDribbleTickMs > 380)
                 {
                     lastDribbleTickMs = nowMs;
-                    Vec3d impactPos = GetDribblePos(0.05);
+                    Vec3d impactPos = GetDribblePos(0.15);
                     BasketballAudioParticles.PlayDribbleSound(World, impactPos);
                     BasketballAudioParticles.SpawnDribbleParticles(World, impactPos);
                 }
 
-                // Smoothly face nearest player when sparring
+                // Face nearest player when sparring
                 EntityPlayer? nearPlayer = World.GetNearestEntity(Pos.XYZ, 4.0f, 2.0f, e => e is EntityPlayer ep && ep.Alive) as EntityPlayer;
                 if (nearPlayer != null)
                 {
@@ -146,9 +145,7 @@ namespace BasketballAllstars.Entities
                     if (toPlayer.Length() > 0.1)
                     {
                         // 90 degree compensation for strawdummy model alignment
-                        float targetYaw = (float)Math.Atan2(toPlayer.X, toPlayer.Z) - (float)GameMath.PIHALF;
-                        float diff = GameMath.AngleRadDistance(Pos.Yaw, targetYaw);
-                        Pos.Yaw += diff * Math.Min(1f, dt * 5f);
+                        Pos.Yaw = (float)Math.Atan2(toPlayer.X, toPlayer.Z) - (float)GameMath.PIHALF;
                     }
                 }
             }
