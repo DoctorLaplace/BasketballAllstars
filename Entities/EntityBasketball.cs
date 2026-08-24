@@ -46,6 +46,32 @@ namespace BasketballAllstars.Entities
         private double prevY;
 
         public override bool IsInteractable => true;
+        public override bool IsCreature => false;
+
+        public override bool ShouldReceiveDamage(DamageSource damageSource, float damage) => true;
+
+        public override bool ReceiveDamage(DamageSource damageSource, float damage)
+        {
+            if (World != null && World.Side == EnumAppSide.Server)
+            {
+                // Attacking/punching the ball breaks it into its placed block or dropped item
+                ConvertToPlacedBlock();
+            }
+            return false;
+        }
+
+        public override void Die(EnumDespawnReason reason = EnumDespawnReason.Death, DamageSource damageSourceForDeath = null)
+        {
+            if (reason == EnumDespawnReason.Death && World != null && World.Side == EnumAppSide.Server)
+            {
+                Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
+                if (ballItem != null)
+                {
+                    World.SpawnItemEntity(ProjectileStack ?? new ItemStack(ballItem, 1), Pos.XYZ);
+                }
+            }
+            base.Die(reason, damageSourceForDeath);
+        }
 
         public void StartNetTransit(Vec3d rimCenter)
         {
@@ -338,7 +364,7 @@ namespace BasketballAllstars.Entities
             base.OnInteract(byEntity, slot, hitPosition, mode);
             if (!Collectible) return;
 
-            if (mode == EnumInteractMode.Interact && byEntity is EntityPlayer entityPlayer && entityPlayer.Player is IServerPlayer sPlayer)
+            if (byEntity is EntityPlayer entityPlayer && entityPlayer.Player is IServerPlayer sPlayer)
             {
                 // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
                 byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
