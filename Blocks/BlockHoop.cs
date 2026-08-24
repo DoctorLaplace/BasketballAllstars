@@ -11,58 +11,25 @@ namespace BasketballAllstars.Blocks
 
         public Vec3d GetRimCenter(BlockPos pos)
         {
-            // Center of the hoop ring based on orientation
-            string? orientation = Variant?["horizontalorientation"] ?? "north";
-            double rimOffset = 0.45;
-            double rimY = pos.Y + 0.80;
-
-            double cx = pos.X + 0.5;
-            double cz = pos.Z + 0.5;
-
-            switch (orientation)
-            {
-                case "north":
-                    cz -= rimOffset;
-                    break;
-                case "south":
-                    cz += rimOffset;
-                    break;
-                case "east":
-                    cx += rimOffset;
-                    break;
-                case "west":
-                    cx -= rimOffset;
-                    break;
-            }
-
-            return new Vec3d(cx, rimY, cz);
+            // Center of the hoop ring at the top of the block
+            return new Vec3d(pos.X + 0.5, pos.Y + 0.90, pos.Z + 0.5);
         }
 
         public override Cuboidf[] GetCollisionBoxes(IBlockAccessor blockAccessor, BlockPos pos)
         {
-            string? orientation = Variant?["horizontalorientation"] ?? "north";
-            switch (orientation)
+            // 4 thin border bars of the top ring with open center
+            return new Cuboidf[]
             {
-                case "north":
-                    // Rim extends North; backboard is at South edge
-                    return new Cuboidf[] { new Cuboidf(0f, 0f, 0.85f, 1f, 1.2f, 1f) };
-                case "south":
-                    // Rim extends South; backboard is at North edge
-                    return new Cuboidf[] { new Cuboidf(0f, 0f, 0f, 1f, 1.2f, 0.15f) };
-                case "east":
-                    // Rim extends East; backboard is at West edge
-                    return new Cuboidf[] { new Cuboidf(0f, 0f, 0f, 0.15f, 1.2f, 1f) };
-                case "west":
-                    // Rim extends West; backboard is at East edge
-                    return new Cuboidf[] { new Cuboidf(0.85f, 0f, 0f, 1f, 1.2f, 1f) };
-                default:
-                    return new Cuboidf[] { new Cuboidf(0f, 0f, 0.85f, 1f, 1.2f, 1f) };
-            }
+                new Cuboidf(0.125f, 0.875f, 0.125f, 0.875f, 1.0f, 0.25f),  // North bar
+                new Cuboidf(0.125f, 0.875f, 0.75f,  0.875f, 1.0f, 0.875f), // South bar
+                new Cuboidf(0.125f, 0.875f, 0.25f,  0.25f,  1.0f, 0.75f),  // West bar
+                new Cuboidf(0.75f,  0.875f, 0.25f,  0.875f, 1.0f, 0.75f)   // East bar
+            };
         }
 
         public override Cuboidf[] GetSelectionBoxes(IBlockAccessor blockAccessor, BlockPos pos)
         {
-            return new Cuboidf[] { new Cuboidf(0f, 0f, 0f, 1f, 1.2f, 1f) };
+            return new Cuboidf[] { new Cuboidf(0.125f, 0.875f, 0.125f, 0.875f, 1.0f, 0.875f) };
         }
     }
 }

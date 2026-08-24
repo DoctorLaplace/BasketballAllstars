@@ -1,0 +1,65 @@
+{
+  "editor": {
+    "allAngles": true,
+    "entityTextureMode": false
+  },
+  "textureWidth": 16,
+  "textureHeight": 16,
+  "textures": {
+    "white": "game:block/clay/hardened/white"
+  },
+  "elements": [
+    {
+      "name": "NorthBar",
+      "from": [ 2.0, 14.0, 2.0 ],
+      "to": [ 14.0, 16.0, 4.0 ],
+      "faces": {
+        "north": { "texture": "#white", "uv": [ 0.0, 0.0, 12.0, 2.0 ] },
+        "east":  { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "south": { "texture": "#white", "uv": [ 0.0, 0.0, 12.0, 2.0 ] },
+        "west":  { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "up":    { "texture": "#white", "uv": [ 2.0, 2.0, 14.0, 4.0 ] },
+        "down":  { "texture": "#white", "uv": [ 2.0, 2.0, 14.0, 4.0 ] }
+      }
+    },
+    {
+      "name": "SouthBar",
+      "from": [ 2.0, 14.0, 12.0 ],
+      "to": [ 14.0, 16.0, 14.0 ],
+      "faces": {
+        "north": { "texture": "#white", "uv": [ 0.0, 0.0, 12.0, 2.0 ] },
+        "east":  { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "south": { "texture": "#white", "uv": [ 0.0, 0.0, 12.0, 2.0 ] },
+        "west":  { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "up":    { "texture": "#white", "uv": [ 2.0, 12.0, 14.0, 14.0 ] },
+        "down":  { "texture": "#white", "uv": [ 2.0, 12.0, 14.0, 14.0 ] }
+      }
+    },
+    {
+      "name": "WestBar",
+      "from": [ 2.0, 14.0, 4.0 ],
+      "to": [ 4.0, 16.0, 12.0 ],
+      "faces": {
+        "north": { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "east":  { "texture": "#white", "uv": [ 0.0, 0.0, 8.0, 2.0 ] },
+        "south": { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "west":  { "texture": "#white", "uv": [ 0.0, 0.0, 8.0, 2.0 ] },
+        "up":    { "texture": "#white", "uv": [ 2.0, 4.0, 4.0, 12.0 ] },
+        "down":  { "texture": "#white", "uv": [ 2.0, 4.0, 4.0, 12.0 ] }
+      }
+    },
+    {
+      "name": "EastBar",
+      "from": [ 12.0, 14.0, 4.0 ],
+      "to": [ 14.0, 16.0, 12.0 ],
+      "faces": {
+        "north": { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "east":  { "texture": "#white", "uv": [ 0.0, 0.0, 8.0, 2.0 ] },
+        "south": { "texture": "#white", "uv": [ 0.0, 0.0, 2.0, 2.0 ] },
+        "west":  { "texture": "#white", "uv": [ 0.0, 0.0, 8.0, 2.0 ] },
+        "up":    { "texture": "#white", "uv": [ 12.0, 4.0, 14.0, 12.0 ] },
+        "down":  { "texture": "#white", "uv": [ 12.0, 4.0, 14.0, 12.0 ] }
+      }
+    }
+  ]
+}
