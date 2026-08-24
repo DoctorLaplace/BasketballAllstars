@@ -100,6 +100,7 @@ namespace BasketballAllstars.Items
                         ball.ProjectileStack = stack;
 
                         EntityProjectile.SpawnProjectile(ball, byEntity, throwSpeed, 0.75, -0.05, 0.15, 0.35, 20);
+                        ball.CaptureInitialLaunchMotion();
 
                         // Play throw sound
                         BasketballAudioParticles.PlayThrowSound(byEntity.World, byEntity.Pos.XYZ);

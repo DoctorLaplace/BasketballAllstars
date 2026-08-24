@@ -39,7 +39,6 @@ namespace BasketballAllstars.Entities
         private double netExitY = 0;
         private Vec3d netCenter = new Vec3d();
         private float restTimeSeconds = 0f;
-        private float accumulatedPitch = 0f;
 
         protected bool beforeCollided;
         protected long msLaunch;
@@ -121,19 +120,12 @@ namespace BasketballAllstars.Entities
             LifetimeSeconds += dt;
             EntityPos pos = Pos;
 
-            // Physics-based directional rolling / spinning animation aligned with travel vector
-            double horizSpeed = Math.Sqrt(pos.Motion.X * pos.Motion.X + pos.Motion.Z * pos.Motion.Z);
-            double totalSpeed = pos.Motion.Length();
-
-            if (totalSpeed > 0.005 && !InNetTransit)
+            // Spin animation while in flight
+            double speed = pos.Motion.Length();
+            if (speed > 0.01 && !InNetTransit)
             {
-                if (horizSpeed > 0.003)
-                {
-                    pos.Yaw = (float)Math.Atan2(pos.Motion.X, pos.Motion.Z);
-                }
-                accumulatedPitch += (float)(totalSpeed * dt / 0.18);
-                pos.Pitch = accumulatedPitch % GameMath.TWOPI;
-                pos.Roll = 0f;
+                pos.Pitch = (World.ElapsedMilliseconds / 250f) % GameMath.TWOPI;
+                pos.Yaw = (World.ElapsedMilliseconds / 300f) % GameMath.TWOPI;
             }
 
             if (InNetTransit)
@@ -226,6 +218,12 @@ namespace BasketballAllstars.Entities
             Die();
         }
 
+        public void CaptureInitialLaunchMotion()
+        {
+            motionBeforeCollide.Set(Pos.Motion.X, Pos.Motion.Y, Pos.Motion.Z);
+            msLaunch = World.ElapsedMilliseconds;
+        }
+
         public override void OnCollided()
         {
             EntityPos pos = Pos;
@@ -240,28 +238,38 @@ namespace BasketballAllstars.Entities
                     return;
                 }
 
-                double impactSpeed = motionBeforeCollide.Length();
-
-                if (impactSpeed > 0.04)
+                // Determine actual incoming impact velocity
+                double incomingSpeed = motionBeforeCollide.Length();
+                if (incomingSpeed < 0.02)
                 {
-                    BasketballAudioParticles.PlayBounceSound(World, pos.XYZ, (float)impactSpeed);
+                    incomingSpeed = pos.Motion.Length();
+                }
+
+                if (incomingSpeed > 0.04)
+                {
+                    BasketballAudioParticles.PlayBounceSound(World, pos.XYZ, (float)incomingSpeed);
                     BasketballAudioParticles.SpawnBounceParticles(World, pos.XYZ);
                 }
 
                 // Restitution physics (Floor / Wall rebound)
                 if (CollidedVertically)
                 {
-                    if (motionBeforeCollide.Y < -0.02)
+                    double incomingY = motionBeforeCollide.Y < -0.02 ? motionBeforeCollide.Y : (pos.Y - prevY);
+                    if (incomingY < -0.02)
                     {
-                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
+                        double bounceY = -incomingY * 0.76;
+                        pos.Motion.Y = Math.Clamp(bounceY, 0.12, 1.20);
+                        pos.Y += 0.04; // Nudge upwards to clear ground voxel and prevent stuck double-collision
                     }
-                    pos.Motion.X *= 0.88;
-                    pos.Motion.Z *= 0.88;
+                    pos.Motion.X = motionBeforeCollide.X * 0.88;
+                    pos.Motion.Z = motionBeforeCollide.Z * 0.88;
                 }
                 else if (CollidedHorizontally)
                 {
-                    pos.Motion.X = -motionBeforeCollide.X * 0.65;
-                    pos.Motion.Z = -motionBeforeCollide.Z * 0.65;
+                    pos.Motion.X = -motionBeforeCollide.X * 0.70;
+                    pos.Motion.Z = -motionBeforeCollide.Z * 0.70;
+                    pos.X += (pos.Motion.X > 0 ? 0.03 : -0.03);
+                    pos.Z += (pos.Motion.Z > 0 ? 0.03 : -0.03);
                 }
 
                 if (pos.Motion.Length() < 0.02)
@@ -269,6 +277,7 @@ namespace BasketballAllstars.Entities
                     pos.Motion.Set(0, 0, 0);
                 }
 
+                motionBeforeCollide.Set(pos.Motion.X, pos.Motion.Y, pos.Motion.Z);
                 WatchedAttributes.MarkAllDirty();
                 beforeCollided = true;
             }
@@ -394,14 +403,16 @@ namespace BasketballAllstars.Entities
                         TryCollect(sPlayer);
                         return;
                     }
-                    // If thrown by self: do NOT auto-catch immediately when hucked into the ground!
-                    // Allow the ball to bounce up and only catch if:
-                    // 1. It has been in flight for at least 450ms (after the bounce has peaked)
-                    // 2. OR it has come to a slow resting roll on the ground (speed < 0.08)
-                    else if (isThrower && (timeSinceLaunch > 450 || (OnGround && Pos.Motion.Length() < 0.08)))
+                    // If thrown by self: catch on rebound, slow speed, or after 320ms in flight
+                    else if (isThrower)
                     {
-                        TryCollect(sPlayer);
-                        return;
+                        if (timeSinceLaunch < 200) return;
+
+                        if (timeSinceLaunch > 320 || Pos.Motion.Length() < 0.20 || (beforeCollided && relY >= 0.50))
+                        {
+                            TryCollect(sPlayer);
+                            return;
+                        }
                     }
                 }
             }
