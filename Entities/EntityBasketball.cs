@@ -39,6 +39,7 @@ namespace BasketballAllstars.Entities
         private double netExitY = 0;
         private Vec3d netCenter = new Vec3d();
         private float restTimeSeconds = 0f;
+        private float accumulatedPitch = 0f;
 
         protected bool beforeCollided;
         protected long msLaunch;
@@ -120,12 +121,19 @@ namespace BasketballAllstars.Entities
             LifetimeSeconds += dt;
             EntityPos pos = Pos;
 
-            // Spin animation while in flight
-            double speed = pos.Motion.Length();
-            if (speed > 0.01 && !InNetTransit)
+            // Physics-based directional rolling / spinning animation aligned with travel vector
+            double horizSpeed = Math.Sqrt(pos.Motion.X * pos.Motion.X + pos.Motion.Z * pos.Motion.Z);
+            double totalSpeed = pos.Motion.Length();
+
+            if (totalSpeed > 0.005 && !InNetTransit)
             {
-                pos.Pitch = (World.ElapsedMilliseconds / 250f) % GameMath.TWOPI;
-                pos.Yaw = (World.ElapsedMilliseconds / 300f) % GameMath.TWOPI;
+                if (horizSpeed > 0.003)
+                {
+                    pos.Yaw = (float)Math.Atan2(pos.Motion.X, pos.Motion.Z);
+                }
+                accumulatedPitch += (float)(totalSpeed * dt / 0.18);
+                pos.Pitch = accumulatedPitch % GameMath.TWOPI;
+                pos.Roll = 0f;
             }
 
             if (InNetTransit)
@@ -386,8 +394,11 @@ namespace BasketballAllstars.Entities
                         TryCollect(sPlayer);
                         return;
                     }
-                    // If thrown by self: catch on rebound, slow speed, or after 320ms in flight
-                    else if (isThrower && (timeSinceLaunch > 320 || Pos.Motion.Length() < 0.25 || beforeCollided))
+                    // If thrown by self: do NOT auto-catch immediately when hucked into the ground!
+                    // Allow the ball to bounce up and only catch if:
+                    // 1. It has been in flight for at least 450ms (after the bounce has peaked)
+                    // 2. OR it has come to a slow resting roll on the ground (speed < 0.08)
+                    else if (isThrower && (timeSinceLaunch > 450 || (OnGround && Pos.Motion.Length() < 0.08)))
                     {
                         TryCollect(sPlayer);
                         return;
