@@ -1,0 +1,24 @@
+{
+  "code": "basketballdummy",
+  "class": "EntityBasketballDummy",
+  "hitboxSize": { "x": 0.7, "y": 1.9 },
+  "eyeHeight": 1.8,
+  "knockbackResistance": 1.0,
+  "client": {
+    "renderer": "Shape",
+    "shape": { "base": "game:entity/nonliving/strawdummy" },
+    "size": 1.0,
+    "behaviors": [
+      { "code": "repulseagents" },
+      { "code": "controlledphysics", "stepHeight": 1.1251 },
+      { "code": "interpolateposition" }
+    ]
+  },
+  "server": {
+    "behaviors": [
+      { "code": "repulseagents" },
+      { "code": "controlledphysics", "stepHeight": 1.1251 },
+      { "code": "health", "currenthealth": 100, "maxhealth": 100 }
+    ]
+  }
+}

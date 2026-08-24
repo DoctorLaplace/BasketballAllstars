@@ -1,0 +1,24 @@
+{
+  "code": "basketball",
+  "class": "EntityBasketball",
+  "hitboxSize": { "x": 0.25, "y": 0.25 },
+  "client": {
+    "renderer": "Shape",
+    "shape": { "base": "basketballallstars:entity/basketball" },
+    "textures": {
+      "leather": { "base": "game:block/clay/hardened/orange" },
+      "seam": { "base": "game:block/clay/hardened/black" }
+    },
+    "size": 1.0,
+    "behaviors": [
+      { "code": "passivephysics" },
+      { "code": "interpolateposition" }
+    ]
+  },
+  "server": {
+    "behaviors": [
+      { "code": "passivephysics" },
+      { "code": "despawn", "minSeconds": 600 }
+    ]
+  }
+}

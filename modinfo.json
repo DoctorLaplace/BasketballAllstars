@@ -1,0 +1,15 @@
+{
+  "type": "code",
+  "modid": "basketballallstars",
+  "name": "Basketball Allstars",
+  "authors": [
+    "DoctorLaplace"
+  ],
+  "description": "High-octane basketball mechanics featuring charged leaps, dunk arcs, mid-air QTE parry duels, ground steals, hoop celebrations, and RogueStory progression synergy.",
+  "version": "1.0.0",
+  "dependencies": {
+    "game": "1.22.0",
+    "survival": "1.22.0",
+    "roguestory": "2.0.4"
+  }
+}

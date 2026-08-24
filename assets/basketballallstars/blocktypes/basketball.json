@@ -1,0 +1,34 @@
+{
+  "code": "basketball",
+  "class": "BlockBasketball",
+  "creativeinventory": {
+    "general": ["*"],
+    "mechanics": ["*"]
+  },
+  "shape": { "base": "basketballallstars:block/basketball" },
+  "textures": {
+    "leather": { "base": "game:block/clay/hardened/orange" },
+    "seam": { "base": "game:block/clay/hardened/black" }
+  },
+  "blockmaterial": "Cloth",
+  "sidesolid": {
+    "all": false
+  },
+  "sideopaque": {
+    "all": false
+  },
+  "rainPermeable": true,
+  "resistance": 1.0,
+  "lightAbsorption": 0,
+  "maxStackSize": 8,
+  "drops": [
+    { "type": "item", "code": "basketballallstars:basketball", "quantity": { "avg": 1 } }
+  ],
+  "collisionbox": { "x1": 0.35, "y1": 0, "z1": 0.35, "x2": 0.65, "y2": 0.30, "z2": 0.65 },
+  "selectionbox": { "x1": 0.35, "y1": 0, "z1": 0.35, "x2": 0.65, "y2": 0.30, "z2": 0.65 },
+  "sounds": {
+    "hit": "block/cloth",
+    "break": "block/cloth",
+    "place": "block/cloth"
+  }
+}

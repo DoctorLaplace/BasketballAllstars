@@ -1,0 +1,19 @@
+# Visual Studio / .NET
+bin/
+obj/
+.vs/
+*.user
+*.userprefs
+*.sln.docstates
+
+# Distribution
+dist/
+
+# Vintage Story specific
+mods/
+*.log
+*.bak
+
+# Temporary / OS
+.DS_Store
+Thumbs.db
