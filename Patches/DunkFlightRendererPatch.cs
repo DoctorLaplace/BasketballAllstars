@@ -111,7 +111,7 @@ namespace BasketballAllstars.Patches
                     // Reduce movespeed by x0.75 while charging jump
                     controls.MovespeedMultiplier *= 0.75f;
                 }
-                else if (dunkSystem.WasSpaceHeld && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
+                else if ((dunkSystem.SuppressJumpUntilRelease || dunkSystem.WasSpaceHeld) && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
                 {
                     controls.Jump = false;
                 }

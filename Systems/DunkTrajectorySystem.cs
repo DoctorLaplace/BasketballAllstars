@@ -55,6 +55,7 @@ namespace BasketballAllstars.Systems
         public string ClientLockedDunkerUid { get; set; } = "";
         private bool wasSpaceHeld = false;
         public bool WasSpaceHeld => wasSpaceHeld;
+        public bool SuppressJumpUntilRelease { get; set; } = false;
 
         public bool HasActiveClientTrajectory => clientTrajectories.Count > 0;
         public string LocalPlayerUid => (api as ICoreClientAPI)?.World.Player?.PlayerUID ?? "";
@@ -573,6 +574,7 @@ namespace BasketballAllstars.Systems
                 ClientIsChargingJump = false;
                 ClientJumpCharge = 0f;
                 wasSpaceHeld = false;
+                SuppressJumpUntilRelease = false;
                 ClientLockedHoopPos = null;
                 ClientLockedDunkerUid = "";
                 return;
@@ -600,8 +602,18 @@ namespace BasketballAllstars.Systems
             {
                 if (player.Entity.OnGround && (holdingBall || !string.IsNullOrEmpty(ClientLockedDunkerUid)))
                 {
-                    ClientIsChargingJump = true;
-                    ClientJumpCharge = Math.Min(ClientJumpCharge + dt * 0.8f, 1.0f);
+                    if (!SuppressJumpUntilRelease)
+                    {
+                        // Fresh jump charge initiated on the ground
+                        SuppressJumpUntilRelease = true;
+                        ClientIsChargingJump = true;
+                        ClientJumpCharge = 0f;
+                    }
+
+                    if (ClientIsChargingJump)
+                    {
+                        ClientJumpCharge = Math.Min(ClientJumpCharge + dt * 0.8f, 1.0f);
+                    }
                     wasSpaceHeld = true;
 
                     // Suppress vanilla immediate jump while charging so player stays grounded to build power
@@ -613,26 +625,30 @@ namespace BasketballAllstars.Systems
                 else if (!player.Entity.OnGround)
                 {
                     // Player stepped or fell off a block while holding spacebar:
-                    // Cancel charging without autofiring any jump!
+                    // Cancel charging without autofiring any jump, and maintain jump suppression until physical release!
                     if (ClientIsChargingJump)
                     {
                         ClientIsChargingJump = false;
                         ClientJumpCharge = 0f;
-                        wasSpaceHeld = false;
                     }
+                }
+
+                if (SuppressJumpUntilRelease)
+                {
+                    player.Entity.Controls.Jump = false;
                 }
             }
             else
             {
                 // Spacebar physically released: only fire if we were charging while grounded
-                if (wasSpaceHeld && ClientIsChargingJump)
+                if (wasSpaceHeld && ClientIsChargingJump && player.Entity.OnGround)
                 {
-                    if (ClientJumpCharge >= 0.50f && player.Entity.OnGround)
+                    if (ClientJumpCharge >= 0.50f)
                     {
                         // Spacebar released with at least 50% charge: execute slam dunk or intercept!
                         ExecuteClientJump(capi, player, ClientJumpCharge);
                     }
-                    else if (player.Entity.OnGround)
+                    else
                     {
                         // Released before reaching 50%: perform standard player jump instead of doing nothing!
                         double jumpMultiplier = Math.Sqrt(Math.Max(1.0, player.Entity.Stats.GetBlended("jumpHeightMul")));
@@ -640,9 +656,11 @@ namespace BasketballAllstars.Systems
                         player.Entity.PlayEntitySound("jump", player);
                     }
                 }
+
                 ClientIsChargingJump = false;
                 ClientJumpCharge = 0f;
                 wasSpaceHeld = false;
+                SuppressJumpUntilRelease = false;
             }
         }
 
