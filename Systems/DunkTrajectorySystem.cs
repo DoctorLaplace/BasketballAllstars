@@ -106,6 +106,23 @@ namespace BasketballAllstars.Systems
         {
             if (entityPlayer == null || traj == null) return;
 
+            if (traj.IsSuspended)
+            {
+                // Wild spinning and sparking during air clash duel
+                float clashSpin = (float)((entityPlayer.World.ElapsedMilliseconds / 1000.0) * GameMath.TWOPI * 3.5);
+                entityPlayer.BodyYaw = clashSpin;
+                entityPlayer.WalkYaw = clashSpin;
+                entityPlayer.Pos.Yaw = clashSpin;
+                entityPlayer.Pos.Roll = (float)(Math.Sin(clashSpin) * 0.45);
+                entityPlayer.WalkPitch = (float)(Math.Cos(clashSpin) * 0.45);
+
+                if (entityPlayer.World.Side == EnumAppSide.Client && rand.NextDouble() < 0.25)
+                {
+                    BasketballAudioParticles.SpawnClashSparks(entityPlayer.World, entityPlayer.Pos.XYZ.AddCopy(0, 1.0, 0));
+                }
+                return;
+            }
+
             double elapsedMs = entityPlayer.World.ElapsedMilliseconds - traj.StartLocalMs;
             float t = Math.Clamp((float)(elapsedMs / (Math.Max(traj.DurationSeconds, 0.1f) * 1000.0)), 0f, 1f);
             float flightYaw = traj.FlightYaw;
@@ -242,6 +259,9 @@ namespace BasketballAllstars.Systems
             double dz = dunkerFuturePos.Z - startPos.Z;
             float flightYaw = (float)Math.Atan2(dx, dz);
 
+            int dunkStyle = (int)EnumDunkStyle.FrontFlip;
+            int revolutions = 2;
+
             var traj = new ActiveTrajectory
             {
                 PlayerUid = player.PlayerUID,
@@ -251,8 +271,8 @@ namespace BasketballAllstars.Systems
                 DurationSeconds = duration,
                 StartLocalMs = api.World.ElapsedMilliseconds,
                 IsDunk = false,
-                DunkStyle = (int)EnumDunkStyle.Normal,
-                Revolutions = 1,
+                DunkStyle = dunkStyle,
+                Revolutions = revolutions,
                 FlightYaw = flightYaw
             };
 
@@ -272,8 +292,8 @@ namespace BasketballAllstars.Systems
                 DurationSeconds = duration,
                 ArcHeight = arcHeight,
                 IsDunk = false,
-                DunkStyle = (int)EnumDunkStyle.Normal,
-                Revolutions = 1
+                DunkStyle = dunkStyle,
+                Revolutions = revolutions
             });
 
             BasketballAudioParticles.PlayThrowSound(api.World, startPos);
@@ -616,6 +636,7 @@ namespace BasketballAllstars.Systems
             }
 
             bool holdingBall = BasketballGameState.IsHoldingBall(player.Entity);
+            bool isBallNearby = BasketballGameState.IsAnyPlayerHoldingBallNearby(api, player.Entity, 30.0);
 
             // Scanning targets
             if (holdingBall)
@@ -635,7 +656,7 @@ namespace BasketballAllstars.Systems
 
             if (spaceDown)
             {
-                if (player.Entity.OnGround && (holdingBall || !string.IsNullOrEmpty(ClientLockedDunkerUid)))
+                if (player.Entity.OnGround && (holdingBall || isBallNearby || !string.IsNullOrEmpty(ClientLockedDunkerUid)))
                 {
                     if (!SuppressJumpUntilRelease)
                     {
@@ -647,7 +668,9 @@ namespace BasketballAllstars.Systems
 
                     if (ClientIsChargingJump)
                     {
-                        ClientJumpCharge = Math.Min(ClientJumpCharge + dt * 0.8f, 1.0f);
+                        // Counter dunk parries take half the time to initiate than a dunk!
+                        float chargeRate = !string.IsNullOrEmpty(ClientLockedDunkerUid) ? 1.6f : 0.8f;
+                        ClientJumpCharge = Math.Min(ClientJumpCharge + dt * chargeRate, 1.0f);
                     }
                     wasSpaceHeld = true;
 
@@ -673,14 +696,15 @@ namespace BasketballAllstars.Systems
                 // Spacebar physically released: only fire if we were charging while grounded
                 if (wasSpaceHeld && ClientIsChargingJump && player.Entity.OnGround)
                 {
-                    if (ClientJumpCharge >= 0.50f)
+                    float minChargeThreshold = !string.IsNullOrEmpty(ClientLockedDunkerUid) ? 0.25f : 0.50f;
+                    if (ClientJumpCharge >= minChargeThreshold)
                     {
-                        // Spacebar released with at least 50% charge: execute slam dunk or intercept!
+                        // Spacebar released with required charge: execute slam dunk, counter dunk parry, or super jump!
                         ExecuteClientJump(capi, player, ClientJumpCharge);
                     }
                     else
                     {
-                        // Released before reaching 50%: perform standard player jump instead of doing nothing!
+                        // Released before reaching threshold: perform standard player jump instead of doing nothing!
                         double jumpMultiplier = Math.Sqrt(Math.Max(1.0, player.Entity.Stats.GetBlended("jumpHeightMul")));
                         player.Entity.Pos.Motion.Y = 0.145 * jumpMultiplier;
                         player.Entity.PlayEntitySound("jump", player);
@@ -760,6 +784,38 @@ namespace BasketballAllstars.Systems
                     TargetPlayerUid = ClientLockedDunkerUid,
                     ChargeAmount = charge
                 });
+
+                IPlayer? targetDunker = capi.World.PlayerByUid(ClientLockedDunkerUid);
+                if (targetDunker?.Entity != null)
+                {
+                    Vec3d startPos = player.Entity.Pos.XYZ.Clone();
+                    Vec3d targetPos = targetDunker.Entity.Pos.XYZ.Clone();
+                    if (clientTrajectories.TryGetValue(ClientLockedDunkerUid, out var targetTraj))
+                    {
+                        targetPos = targetTraj.TargetPos.Clone();
+                    }
+
+                    double dx = targetPos.X - startPos.X;
+                    double dz = targetPos.Z - startPos.Z;
+                    float flightYaw = (float)Math.Atan2(dx, dz);
+                    double distance = startPos.DistanceTo(targetPos);
+                    float duration = (float)Math.Clamp(distance / 12.0, 0.4, 1.2);
+                    float arcHeight = (float)Math.Clamp(distance * 0.30 + 1.5, 2.0, 6.0);
+
+                    clientTrajectories[player.PlayerUID] = new ActiveTrajectory
+                    {
+                        PlayerUid = player.PlayerUID,
+                        StartPos = startPos,
+                        TargetPos = targetPos,
+                        ArcHeight = arcHeight,
+                        DurationSeconds = duration,
+                        StartLocalMs = capi.World.ElapsedMilliseconds,
+                        IsDunk = false,
+                        DunkStyle = (int)EnumDunkStyle.FrontFlip,
+                        Revolutions = 2,
+                        FlightYaw = flightYaw
+                    };
+                }
             }
             else
             {
@@ -825,26 +881,33 @@ namespace BasketballAllstars.Systems
             Vec3f lookVecF = player.Pos.GetViewVector().Normalize();
             Vec3d lookVec = new Vec3d(lookVecF.X, lookVecF.Y, lookVecF.Z);
 
+            string bestDunker = "";
+            double bestScore = -1.0;
+
             foreach (var otherPlayer in capi.World.AllPlayers)
             {
                 if (otherPlayer.PlayerUID == player.PlayerUID || otherPlayer.Entity == null) continue;
 
-                if (otherPlayer.Entity.WatchedAttributes.GetBool("basketballFallImmunity", false))
+                bool isAirborne = otherPlayer.Entity.WatchedAttributes.GetBool("basketballFallImmunity", false) ||
+                                  (clientTrajectories.TryGetValue(otherPlayer.PlayerUID, out var traj) && traj.IsDunk && !traj.IsSuspended);
+
+                if (isAirborne)
                 {
                     Vec3d toTarget = otherPlayer.Entity.Pos.XYZ.SubCopy(eyePos);
                     double dist = toTarget.Length();
-                    if (dist > 1.5 && dist <= 22.0)
+                    if (dist > 1.0 && dist <= 30.0)
                     {
                         double dot = lookVec.Dot(toTarget.Normalize());
-                        if (dot > 0.78)
+                        if (dot > 0.60 && dot > bestScore)
                         {
-                            return otherPlayer.PlayerUID;
+                            bestScore = dot;
+                            bestDunker = otherPlayer.PlayerUID;
                         }
                     }
                 }
             }
 
-            return "";
+            return bestDunker;
         }
     }
 }

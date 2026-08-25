@@ -65,7 +65,7 @@ namespace BasketballAllstars.Systems
                 if (otherTraj != null && !otherTraj.IsDunk && !otherTraj.IsSuspended)
                 {
                     double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(dunkerPos);
-                    if (dist < 1.8)
+                    if (dist < 2.2)
                     {
                         // Trigger Air Clash Duel!
                         StartAirClash(dunker, otherPlayer, dunkerPos);
@@ -195,9 +195,10 @@ namespace BasketballAllstars.Systems
             }
             else
             {
-                // Interceptor won the clash! Steal ball and cancel dunk
+                // Interceptor won the clash! Steal ball and spark explode dunker upward
                 BasketballAudioParticles.PlayClashSound(api.World, duel.ClashPos);
                 BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
+                BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos.AddCopy(0, 0.5, 0));
 
                 // Transfer ball to interceptor
                 if (dunker != null && interceptor != null)
@@ -209,14 +210,14 @@ namespace BasketballAllstars.Systems
                 DunkTrajectorySystem.Instance?.CancelTrajectory(duel.DunkerUid);
                 DunkTrajectorySystem.Instance?.CancelTrajectory(duel.InterceptorUid);
 
-                // Rebound both slightly
+                // Defending player lands cleanly; dunking player is spark exploded and thrown upward!
                 if (dunker?.Entity != null)
                 {
-                    dunker.Entity.Pos.Motion.Set(0, -0.3, 0);
+                    dunker.Entity.Pos.Motion.Set((rand.NextDouble() - 0.5) * 0.3, 0.85, (rand.NextDouble() - 0.5) * 0.3);
                 }
                 if (interceptor?.Entity != null)
                 {
-                    interceptor.Entity.Pos.Motion.Set(0, -0.2, 0);
+                    interceptor.Entity.Pos.Motion.Set(0, -0.15, 0);
                 }
 
                 serverChannel?.BroadcastPacket(new AirClashResultMessage
@@ -237,6 +238,8 @@ namespace BasketballAllstars.Systems
         public void OnClientStartClash(AirClashStartMessage msg)
         {
             if (api is not ICoreClientAPI capi) return;
+            DunkTrajectorySystem.ClientInstance?.SuspendTrajectory(msg.DunkerUid, msg.ClashPos);
+            DunkTrajectorySystem.ClientInstance?.SuspendTrajectory(msg.InterceptorUid, msg.ClashPos.AddCopy(0.3, 0, 0.3));
             GuiDialogAirClashQTE.OpenDuel(capi, msg);
         }
 
@@ -247,6 +250,16 @@ namespace BasketballAllstars.Systems
 
         public void OnClientClashResult(AirClashResultMessage msg)
         {
+            if (msg.DunkerWon)
+            {
+                DunkTrajectorySystem.ClientInstance?.CancelTrajectory(msg.LoserUid);
+                DunkTrajectorySystem.ClientInstance?.ResumeTrajectory(msg.WinnerUid);
+            }
+            else
+            {
+                DunkTrajectorySystem.ClientInstance?.CancelTrajectory(msg.WinnerUid);
+                DunkTrajectorySystem.ClientInstance?.CancelTrajectory(msg.LoserUid);
+            }
             GuiDialogAirClashQTE.Instance?.ShowResult(msg.DunkerWon);
         }
     }

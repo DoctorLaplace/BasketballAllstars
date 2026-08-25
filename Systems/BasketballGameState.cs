@@ -60,19 +60,26 @@ namespace BasketballAllstars.Systems
                 try
                 {
                     bool hasBall = IsHoldingBall(player.Entity);
-                    if (hasBall)
+                    bool isBallNearby = IsAnyPlayerHoldingBallNearby(api, player.Entity, 30.0);
+
+                    if (hasBall || isBallNearby)
                     {
                         ItemBasketball.ApplyCarrierBuffs(player.Entity);
 
-                        // Check if another player can steal the ball
-                        CheckGroundSteals(sapi, player, nowMs);
+                        if (hasBall)
+                        {
+                            // Check if another player can steal the ball
+                            CheckGroundSteals(sapi, player, nowMs);
+                        }
+                        else
+                        {
+                            // Check if player can steal from a nearby dummy
+                            CheckDummySteals(sapi, player, nowMs);
+                        }
                     }
                     else
                     {
                         ItemBasketball.RemoveCarrierBuffs(player.Entity);
-
-                        // Check if player can steal from a nearby dummy
-                        CheckDummySteals(sapi, player, nowMs);
                     }
                 }
                 catch
@@ -261,6 +268,40 @@ namespace BasketballAllstars.Systems
             }
         }
 
+        public static bool IsAnyPlayerHoldingBallNearby(ICoreAPI api, EntityPlayer? player, double maxDistance = 30.0)
+        {
+            if (player == null) return false;
+            if (IsHoldingBall(player)) return true;
+
+            double maxDistSq = maxDistance * maxDistance;
+            Vec3d myPos = player.Pos.XYZ;
+
+            if (api.Side == EnumAppSide.Server && api is ICoreServerAPI sapi)
+            {
+                foreach (IServerPlayer otherPlayer in sapi.World.AllOnlinePlayers)
+                {
+                    if (otherPlayer.Entity == null || otherPlayer.Entity.EntityId == player.EntityId) continue;
+                    if (otherPlayer.Entity.Pos.XYZ.SquareDistanceTo(myPos) <= maxDistSq && IsHoldingBall(otherPlayer.Entity))
+                    {
+                        return true;
+                    }
+                }
+            }
+            else if (api.Side == EnumAppSide.Client && api is ICoreClientAPI capi)
+            {
+                foreach (IPlayer otherPlayer in capi.World.AllPlayers)
+                {
+                    if (otherPlayer.Entity == null || otherPlayer.Entity.EntityId == player.EntityId) continue;
+                    if (otherPlayer.Entity.Pos.XYZ.SquareDistanceTo(myPos) <= maxDistSq && IsHoldingBall(otherPlayer.Entity))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public static ItemSlot? FindBallSlot(EntityPlayer? player)
         {
             if (player == null) return null;
@@ -285,8 +326,11 @@ namespace BasketballAllstars.Systems
             var player = capi.World.Player;
             if (player?.Entity == null) return;
 
-            // Client carrier state
-            if (IsHoldingBall(player.Entity))
+            // Client carrier and proximity state
+            bool hasBall = IsHoldingBall(player.Entity);
+            bool isBallNearby = IsAnyPlayerHoldingBallNearby(api, player.Entity, 30.0);
+
+            if (hasBall || isBallNearby)
             {
                 bool isCharging = DunkTrajectorySystem.ClientInstance?.ClientIsChargingJump ?? false;
                 ItemBasketball.ApplyCarrierBuffs(player.Entity, isCharging);
