@@ -266,20 +266,55 @@ namespace BasketballAllstars.Entities
                     BasketballAudioParticles.SpawnBounceParticles(World, pos.XYZ);
                 }
 
-                // Restitution physics (Floor / Wall rebound)
+                // Restitution physics (Floor / Ceiling / Wall rebound)
                 if (CollidedVertically)
                 {
                     if (motionBeforeCollide.Y < -0.02)
                     {
                         pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
                     }
+                    else if (motionBeforeCollide.Y > 0.02)
+                    {
+                        // Ceiling collision
+                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
+                    }
                     pos.Motion.X *= 0.88;
                     pos.Motion.Z *= 0.88;
                 }
-                else if (CollidedHorizontally)
+
+                if (CollidedHorizontally)
                 {
-                    pos.Motion.X = -motionBeforeCollide.X * 0.65;
-                    pos.Motion.Z = -motionBeforeCollide.Z * 0.65;
+                    bool hitX = Math.Abs(pos.Motion.X) < 0.001 && Math.Abs(motionBeforeCollide.X) > 0.005;
+                    bool hitZ = Math.Abs(pos.Motion.Z) < 0.001 && Math.Abs(motionBeforeCollide.Z) > 0.005;
+
+                    // If neither or both detected through zeroed motion, check delta magnitude
+                    if (!hitX && !hitZ)
+                    {
+                        double deltaX = Math.Abs(motionBeforeCollide.X - pos.Motion.X);
+                        double deltaZ = Math.Abs(motionBeforeCollide.Z - pos.Motion.Z);
+                        if (deltaX > deltaZ + 0.005) hitX = true;
+                        else if (deltaZ > deltaX + 0.005) hitZ = true;
+                        else { hitX = true; hitZ = true; } // Corner hit
+                    }
+
+                    if (hitX && !hitZ)
+                    {
+                        // X-axis wall: reflect X, preserve tangential Z
+                        pos.Motion.X = -motionBeforeCollide.X * 0.68;
+                        pos.Motion.Z = motionBeforeCollide.Z * 0.88;
+                    }
+                    else if (hitZ && !hitX)
+                    {
+                        // Z-axis wall: reflect Z, preserve tangential X
+                        pos.Motion.Z = -motionBeforeCollide.Z * 0.68;
+                        pos.Motion.X = motionBeforeCollide.X * 0.88;
+                    }
+                    else
+                    {
+                        // Corner hit: rebound both axes
+                        pos.Motion.X = -motionBeforeCollide.X * 0.68;
+                        pos.Motion.Z = -motionBeforeCollide.Z * 0.68;
+                    }
                 }
 
                 if (pos.Motion.Length() < 0.02)
