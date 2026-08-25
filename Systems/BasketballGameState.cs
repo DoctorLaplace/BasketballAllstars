@@ -277,7 +277,8 @@ namespace BasketballAllstars.Systems
             // Client carrier state
             if (IsHoldingBall(player.Entity))
             {
-                ItemBasketball.ApplyCarrierBuffs(player.Entity);
+                bool isCharging = DunkTrajectorySystem.ClientInstance?.ClientIsChargingJump ?? false;
+                ItemBasketball.ApplyCarrierBuffs(player.Entity, isCharging);
             }
             else
             {

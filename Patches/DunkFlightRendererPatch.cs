@@ -108,11 +108,6 @@ namespace BasketballAllstars.Patches
                 {
                     // Suppress vanilla normal jump while charging super jump / slam dunk to prevent scrunching/hovering
                     controls.Jump = false;
-                    // Reduce movespeed by x0.75 while charging jump on ground
-                    if (entityPlayer.OnGround)
-                    {
-                        controls.MovespeedMultiplier *= 0.75f;
-                    }
                 }
                 else if ((dunkSystem.SuppressJumpUntilRelease || dunkSystem.WasSpaceHeld) && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
                 {
