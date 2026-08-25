@@ -69,10 +69,7 @@ namespace BasketballAllstars.Systems
                     }
                     else
                     {
-                        if (!player.Entity.WatchedAttributes.GetBool("basketballFallImmunity", false))
-                        {
-                            ItemBasketball.RemoveCarrierBuffs(player.Entity);
-                        }
+                        ItemBasketball.RemoveCarrierBuffs(player.Entity);
 
                         // Check if player can steal from a nearby dummy
                         CheckDummySteals(sapi, player, nowMs);
@@ -281,6 +278,10 @@ namespace BasketballAllstars.Systems
             if (IsHoldingBall(player.Entity))
             {
                 ItemBasketball.ApplyCarrierBuffs(player.Entity);
+            }
+            else
+            {
+                ItemBasketball.RemoveCarrierBuffs(player.Entity);
             }
         }
     }

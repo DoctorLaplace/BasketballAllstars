@@ -195,15 +195,14 @@ namespace BasketballAllstars.Items
 
         public static void ApplyCarrierBuffs(EntityPlayer entityPlayer)
         {
-            // Speed boost
-            entityPlayer.Stats.Set("walkspeed", "basketball_carrier", 0.35f, true);
+            // Speed boost (only while actively holding in hand)
+            entityPlayer.Stats.Set("walkspeed", "basketball_carrier", 0.35f, false);
 
-            // Jump height boost
-            entityPlayer.Stats.Set("jumpHeightMul", "basketball_carrier", 0.60f, true);
+            // Jump height boost (only while actively holding in hand)
+            entityPlayer.Stats.Set("jumpHeightMul", "basketball_carrier", 0.60f, false);
 
-            // Fall damage immunity flag
-            entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
-            entityPlayer.Stats.Set("fallDamageResistance", "basketball_carrier", 1.0f, true);
+            // Fall damage resistance (only while actively holding in hand)
+            entityPlayer.Stats.Set("fallDamageResistance", "basketball_carrier", 1.0f, false);
         }
 
         public static void RemoveCarrierBuffs(EntityPlayer entityPlayer)
@@ -211,7 +210,6 @@ namespace BasketballAllstars.Items
             entityPlayer.Stats.Remove("walkspeed", "basketball_carrier");
             entityPlayer.Stats.Remove("jumpHeightMul", "basketball_carrier");
             entityPlayer.Stats.Remove("fallDamageResistance", "basketball_carrier");
-            entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", false);
         }
     }
 }
