@@ -7,10 +7,11 @@ using BasketballAllstars.Network;
 namespace BasketballAllstars.Gui
 {
     /// <summary>
-    /// Sleek, minimalist mid-air clash QTE display located at the top center of the screen.
+    /// Sleek, minimalist mid-air clash QTE display located halfway between top and center of the screen.
     /// Displays the 10-arrow sequence in a smoothly sliding horizontal strip where
     /// the active arrow is in the center, completed arrows slide left and turn green,
-    /// and making a single mistake immediately fails the clash.
+    /// making a single mistake immediately fails the clash, and the camera orbits
+    /// smoothly from above during the clash and returns to normal when resolved.
     /// </summary>
     public class GuiDialogAirClashQTE : GuiDialogGeneric
     {
@@ -27,6 +28,10 @@ namespace BasketballAllstars.Gui
         private bool hasFailed = false;
         private bool isFinished = false;
         private float closeTimer = 0f;
+
+        private float originalMouseYaw = 0f;
+        private float originalMousePitch = 0f;
+        private bool cameraOverridden = false;
 
         public GuiDialogAirClashQTE(ICoreClientAPI capi, AirClashStartMessage msg) : base("AERIAL CLASH!", capi)
         {
@@ -46,6 +51,14 @@ namespace BasketballAllstars.Gui
 
         public override bool TryOpen()
         {
+            if (capi.World.Player != null)
+            {
+                originalMouseYaw = capi.Input.MouseYaw;
+                originalMousePitch = capi.Input.MousePitch;
+                capi.Input.MousePitch = 0.55f; // Angled down from above
+                cameraOverridden = true;
+            }
+
             ComposeDialog();
             return base.TryOpen();
         }
@@ -57,10 +70,12 @@ namespace BasketballAllstars.Gui
             double width = 760;
             double height = 80;
 
-            // Position near the top of the screen with comfortable top margin
+            // Halfway between top (0%) and middle (50%) of screen = 25% down the screen
+            double topOffset = Math.Max(capi.Gui.WindowBounds.InnerHeight * 0.25 - 40, 120);
+
             ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialog
                 .WithAlignment(EnumDialogArea.CenterTop)
-                .WithFixedPadding(0, 50);
+                .WithFixedAlignmentOffset(0, topOffset);
 
             ElementBounds bgBounds = ElementBounds.Fixed(0, 0, width, height);
 
@@ -103,7 +118,7 @@ namespace BasketballAllstars.Gui
                     else
                     {
                         // Active Current Arrow: Glowing crisp white in center, slightly enlarged
-                        // Subtle soft glow background
+                        // Soft subtle glow background circle
                         ctx.Save();
                         ctx.Arc(slotX, centerY, 24.0, 0, Math.PI * 2.0);
                         ctx.SetSourceRGBA(1.0, 0.88, 0.20, 0.25);
@@ -220,6 +235,13 @@ namespace BasketballAllstars.Gui
         {
             base.OnRenderGUI(deltaTime);
 
+            // Orbit camera smoothly from an angle above the clash while active
+            if (cameraOverridden && !isFinished)
+            {
+                capi.Input.MouseYaw += deltaTime * 1.5f;
+                capi.Input.MousePitch = 0.55f;
+            }
+
             // Smooth sliding animation of the arrow strip towards current arrow
             double targetScroll = myProgress;
             if (Math.Abs(scrollProgress - targetScroll) > 0.001)
@@ -240,6 +262,14 @@ namespace BasketballAllstars.Gui
 
         public override void OnGuiClosed()
         {
+            // Restore original camera angles
+            if (cameraOverridden && capi.World.Player != null)
+            {
+                capi.Input.MouseYaw = originalMouseYaw;
+                capi.Input.MousePitch = originalMousePitch;
+                cameraOverridden = false;
+            }
+
             base.OnGuiClosed();
             Instance = null;
         }

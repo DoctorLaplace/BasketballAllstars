@@ -151,6 +151,10 @@ namespace BasketballAllstars.Patches
                         entityPlayer.ServerControls.IsFlying = false;
                     }
 
+                    // Ensure all flight/tilt angles are cleanly zeroed when not in trajectory
+                    if (entityPlayer.WalkPitch != 0f) entityPlayer.WalkPitch = 0f;
+                    if (entityPlayer.Pos.Roll != 0f) entityPlayer.Pos.Roll = 0f;
+
                     if (dunkSystem.ClientIsChargingJump && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
                     {
                         // Suppress vanilla normal jump while charging super jump / slam dunk to prevent scrunching/hovering

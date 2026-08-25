@@ -117,7 +117,8 @@ namespace BasketballAllstars.Systems
                 entityPlayer.Pos.Roll = (float)(Math.Sin(clashSpin) * 0.45);
                 entityPlayer.WalkPitch = (float)(Math.Cos(clashSpin) * 0.45);
 
-                if (entityPlayer.World.Side == EnumAppSide.Client && rand.NextDouble() < 0.25)
+                // Timed spurts of directional plume spark bursts
+                if (entityPlayer.World.Side == EnumAppSide.Client && (entityPlayer.World.ElapsedMilliseconds % 280 < 30))
                 {
                     BasketballAudioParticles.SpawnClashSparks(entityPlayer.World, entityPlayer.Pos.XYZ.AddCopy(0, 1.0, 0));
                 }
@@ -340,12 +341,43 @@ namespace BasketballAllstars.Systems
         {
             activeTrajectories.Remove(playerUid);
             clientTrajectories.Remove(playerUid);
+
             if (api is ICoreServerAPI sapi)
             {
                 var player = sapi.World.PlayerByUid(playerUid) as IServerPlayer;
                 if (player?.Entity != null)
                 {
+                    player.Entity.WalkPitch = 0f;
+                    player.Entity.Pos.Roll = 0f;
+                    player.Entity.Pos.HeadPitch = 0f;
+                    player.Entity.Pos.HeadYaw = 0f;
+                    player.Entity.Controls.Gliding = false;
+                    player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                    player.Entity.ServerControls.Gliding = false;
+                    player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                     player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                }
+
+                var serverChannel = sapi.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
+                serverChannel?.BroadcastPacket(new TrajectoryCancelMessage
+                {
+                    PlayerUid = playerUid,
+                    ReleaseMotion = player?.Entity?.Pos.Motion != null ? new Vec3d(player.Entity.Pos.Motion.X, player.Entity.Pos.Motion.Y, player.Entity.Pos.Motion.Z) : null
+                });
+            }
+            else if (api is ICoreClientAPI capi)
+            {
+                var player = capi.World.PlayerByUid(playerUid);
+                if (player?.Entity != null)
+                {
+                    player.Entity.WalkPitch = 0f;
+                    player.Entity.Pos.Roll = 0f;
+                    player.Entity.Pos.HeadPitch = 0f;
+                    player.Entity.Pos.HeadYaw = 0f;
+                    player.Entity.Controls.Gliding = false;
+                    player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                    player.Entity.ServerControls.Gliding = false;
+                    player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                 }
             }
         }

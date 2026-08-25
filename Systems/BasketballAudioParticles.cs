@@ -264,25 +264,38 @@ namespace BasketballAllstars.Systems
             world.SpawnParticles(sparkles);
         }
 
+        private static readonly Random particleRand = new Random();
+
         public static void SpawnClashSparks(IWorldAccessor world, Vec3d clashPos)
         {
-            SimpleParticleProperties sparks = new SimpleParticleProperties(
-                minQuantity: 40,
-                maxQuantity: 65,
-                color: ColorUtil.ToRgba(255, 255, 240, 100),
-                minPos: new Vec3d(clashPos.X - 0.2, clashPos.Y + 0.8, clashPos.Z - 0.2),
-                maxPos: new Vec3d(clashPos.X + 0.2, clashPos.Y + 1.2, clashPos.Z + 0.2),
-                minVelocity: new Vec3f(-3.5f, -1.0f, -3.5f),
-                maxVelocity: new Vec3f(3.5f, 3.5f, 3.5f),
-                lifeLength: 0.6f,
-                gravityEffect: 0.8f,
-                minSize: 0.15f,
-                maxSize: 0.4f,
+            // Directional plume burst in a random 3D orientation (-80% count: 6-10 sparks)
+            double rx = particleRand.NextDouble() * 2.0 - 1.0;
+            double ry = particleRand.NextDouble() * 1.6 - 0.6;
+            double rz = particleRand.NextDouble() * 2.0 - 1.0;
+            double len = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+            if (len < 0.001) { rx = 0; ry = 1; rz = 0; len = 1; }
+            rx /= len; ry /= len; rz /= len;
+
+            float speed = 2.4f + (float)particleRand.NextDouble() * 2.6f;
+            float spread = 0.35f;
+
+            SimpleParticleProperties plume = new SimpleParticleProperties(
+                minQuantity: 6,
+                maxQuantity: 10,
+                color: ColorUtil.ToRgba(255, 255, 230 + particleRand.Next(-20, 20), 70),
+                minPos: new Vec3d(clashPos.X - 0.08, clashPos.Y + 0.92, clashPos.Z - 0.08),
+                maxPos: new Vec3d(clashPos.X + 0.08, clashPos.Y + 1.08, clashPos.Z + 0.08),
+                minVelocity: new Vec3f((float)rx * speed - spread, (float)ry * speed - spread, (float)rz * speed - spread),
+                maxVelocity: new Vec3f((float)rx * speed + spread, (float)ry * speed + spread, (float)rz * speed + spread),
+                lifeLength: 0.32f,
+                gravityEffect: 0.4f,
+                minSize: 0.12f,
+                maxSize: 0.28f,
                 model: EnumParticleModel.Quad
             );
-            sparks.VertexFlags = 255; // Full glow
+            plume.VertexFlags = 255; // Full glow
 
-            world.SpawnParticles(sparks);
+            world.SpawnParticles(plume);
         }
     }
 }
