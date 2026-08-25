@@ -29,13 +29,18 @@ namespace BasketballAllstars.Patches
                 {
                     harmony.Patch(setControlsMethod, postfix: new HarmonyMethod(physicsPostfix));
                 }
-                else
+
+                // 2. Patch PlayerHeadController.OnFrame
+                var headType = typeof(PlayerHeadController);
+                var onFrameMethod = headType?.GetMethod("OnFrame", BindingFlags.Public | BindingFlags.Instance);
+                var onFramePrefix = typeof(DunkFlightRendererPatch).GetMethod(nameof(PlayerHeadController_OnFrame_Prefix), BindingFlags.Public | BindingFlags.Static);
+
+                if (onFrameMethod != null && onFramePrefix != null)
                 {
-                    capi.Logger.Warning("[BasketballAllstars] Could not find EntityBehaviorPlayerPhysics.SetPlayerControls for dunk patch.");
+                    harmony.Patch(onFrameMethod, prefix: new HarmonyMethod(onFramePrefix));
                 }
 
-                // 2. Patch PlayerHeadController.AdjustHeadAngles
-                var headType = typeof(PlayerHeadController);
+                // 3. Patch PlayerHeadController.AdjustHeadAngles
                 var adjustHeadMethod = headType?.GetMethod("AdjustHeadAngles", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
                 var headPrefix = typeof(DunkFlightRendererPatch).GetMethod(nameof(AdjustHeadAnglesPrefix), BindingFlags.Public | BindingFlags.Static);
 
@@ -43,12 +48,8 @@ namespace BasketballAllstars.Patches
                 {
                     harmony.Patch(adjustHeadMethod, prefix: new HarmonyMethod(headPrefix));
                 }
-                else
-                {
-                    capi.Logger.Warning("[BasketballAllstars] Could not find PlayerHeadController.AdjustHeadAngles for dunk patch.");
-                }
 
-                // 3. Patch PlayerHeadController.AdjustBodyAngles
+                // 4. Patch PlayerHeadController.AdjustBodyAngles
                 var adjustBodyMethod = headType?.GetMethod("AdjustBodyAngles", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
                 var bodyPrefix = typeof(DunkFlightRendererPatch).GetMethod(nameof(AdjustBodyAnglesPrefix), BindingFlags.Public | BindingFlags.Static);
 
@@ -57,7 +58,7 @@ namespace BasketballAllstars.Patches
                     harmony.Patch(adjustBodyMethod, prefix: new HarmonyMethod(bodyPrefix));
                 }
 
-                // 4. Patch ModSystemGliding.onClientTick to prevent vanilla glider item check from zeroing WalkPitch
+                // 5. Patch ModSystemGliding.onClientTick to prevent vanilla glider item check from zeroing WalkPitch
                 var gliderType = typeof(Vintagestory.GameContent.ModSystemGliding);
                 var gliderTickMethod = gliderType?.GetMethod("onClientTick", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
                 var gliderPrefix = typeof(DunkFlightRendererPatch).GetMethod(nameof(ModSystemGliding_onClientTick_Prefix), BindingFlags.Public | BindingFlags.Static);
@@ -66,7 +67,8 @@ namespace BasketballAllstars.Patches
                 {
                     harmony.Patch(gliderTickMethod, prefix: new HarmonyMethod(gliderPrefix));
                 }
-                // 5. Patch EntityPlayerShapeRenderer.loadModelMatrixForPlayer to apply authoritative dunk rotation and bypass yaw clamp
+
+                // 6. Patch EntityPlayerShapeRenderer.loadModelMatrixForPlayer to apply authoritative dunk rotation and bypass yaw clamp
                 var rendererType = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer);
                 var loadModelMatrixMethod = rendererType?.GetMethod("loadModelMatrixForPlayer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var loadModelMatrixPrefix = typeof(DunkFlightRendererPatch).GetMethod(nameof(LoadModelMatrixForPlayerPrefix), BindingFlags.Public | BindingFlags.Static);
@@ -82,7 +84,7 @@ namespace BasketballAllstars.Patches
             }
         }
 
-        public static void LoadModelMatrixForPlayerPrefix(Vintagestory.GameContent.EntityPlayerShapeRenderer __instance, Entity entity)
+        public static void LoadModelMatrixForPlayerPrefix(Vintagestory.GameContent.EntityPlayerShapeRenderer __instance, Entity entity, bool isSelf, float dt, bool isShadowPass)
         {
             var dunkSystem = DunkTrajectorySystem.ClientInstance;
             if (dunkSystem == null) return;
@@ -92,9 +94,9 @@ namespace BasketballAllstars.Patches
                 dunkSystem.ApplyDunkStyleRotation(entityPlayer, traj);
 
                 // Set bodyYawLerped and smoothedBodyYaw directly so fast spins/somersaults render without clamping
-                var lerpField = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer).GetField("bodyYawLerped", BindingFlags.NonPublic | BindingFlags.Instance);
+                var lerpField = typeof(Vintagestory.GameContent.EntityShapeRenderer).GetField("bodyYawLerped", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 lerpField?.SetValue(__instance, entityPlayer.BodyYaw);
-                var smoothField = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer).GetField("smoothedBodyYaw", BindingFlags.NonPublic | BindingFlags.Instance);
+                var smoothField = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer).GetField("smoothedBodyYaw", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 smoothField?.SetValue(__instance, entityPlayer.BodyYaw);
             }
         }
@@ -127,6 +129,15 @@ namespace BasketballAllstars.Patches
                     controls.Sprint = false;
                     controls.Jump = false;
 
+                    entityPlayer.ServerControls.IsFlying = true;
+                    entityPlayer.ServerControls.Gliding = true;
+                    entityPlayer.ServerControls.Forward = false;
+                    entityPlayer.ServerControls.Backward = false;
+                    entityPlayer.ServerControls.Left = false;
+                    entityPlayer.ServerControls.Right = false;
+                    entityPlayer.ServerControls.Sprint = false;
+                    entityPlayer.ServerControls.Jump = false;
+
                     // Apply style rotation (360 spin, front flip, or tomahawk slam)
                     dunkSystem.ApplyDunkStyleRotation(entityPlayer, traj);
                 }
@@ -136,6 +147,8 @@ namespace BasketballAllstars.Patches
                     {
                         controls.Gliding = false;
                         controls.IsFlying = false;
+                        entityPlayer.ServerControls.Gliding = false;
+                        entityPlayer.ServerControls.IsFlying = false;
                     }
 
                     if (dunkSystem.ClientIsChargingJump && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
@@ -149,6 +162,22 @@ namespace BasketballAllstars.Patches
                     }
                 }
             }
+        }
+
+        public static bool PlayerHeadController_OnFrame_Prefix(PlayerHeadController __instance, float dt)
+        {
+            var dunkSystem = DunkTrajectorySystem.ClientInstance;
+            if (dunkSystem == null) return true;
+
+            var entityField = typeof(PlayerHeadController).GetField("entityPlayer", BindingFlags.NonPublic | BindingFlags.Instance);
+            var entityPlayer = entityField?.GetValue(__instance) as EntityPlayer;
+            if (entityPlayer != null && dunkSystem.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _))
+            {
+                entityPlayer.Pos.HeadPitch = 0f;
+                entityPlayer.Pos.HeadYaw = 0f;
+                return false; // Skip PlayerHeadController so BodyYaw and head angles are not reset on remote players
+            }
+            return true;
         }
 
         public static bool AdjustHeadAnglesPrefix(PlayerHeadController __instance, EnumCameraMode cameraMode, float dt)

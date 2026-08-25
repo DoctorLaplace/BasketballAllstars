@@ -202,6 +202,10 @@ namespace BasketballAllstars.Systems
             activeTrajectories[player.PlayerUID] = traj;
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
             player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 2000);
+            player.Entity.ServerControls.Gliding = true;
+            player.Entity.ServerControls.IsFlying = true;
+            player.Entity.Controls.Gliding = true;
+            player.Entity.Controls.IsFlying = true;
 
             // Sync trajectory to all clients
             var serverChannel = (api as ICoreServerAPI)?.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
@@ -254,6 +258,10 @@ namespace BasketballAllstars.Systems
 
             activeTrajectories[player.PlayerUID] = traj;
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+            player.Entity.ServerControls.Gliding = true;
+            player.Entity.ServerControls.IsFlying = true;
+            player.Entity.Controls.Gliding = true;
+            player.Entity.Controls.IsFlying = true;
 
             var serverChannel = (api as ICoreServerAPI)?.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
             serverChannel?.BroadcastPacket(new TrajectorySyncMessage
@@ -366,6 +374,8 @@ namespace BasketballAllstars.Systems
                 player.Entity.Pos.Roll = 0f;
                 player.Entity.Controls.Gliding = false;
                 player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                player.Entity.ServerControls.Gliding = false;
+                player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                 if (msg.ReleaseMotion != null)
                 {
                     player.Entity.Pos.Motion.Set(msg.ReleaseMotion.X, msg.ReleaseMotion.Y, msg.ReleaseMotion.Z);
@@ -476,6 +486,10 @@ namespace BasketballAllstars.Systems
                     {
                         player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
                         player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 2000);
+                        player.Entity.ServerControls.Gliding = false;
+                        player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
+                        player.Entity.Controls.Gliding = false;
+                        player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
                     }
                 }
             }
@@ -561,6 +575,8 @@ namespace BasketballAllstars.Systems
                 player.Entity.Pos.Motion.Set(0, 0, 0);
                 player.Entity.Controls.Gliding = true;
                 player.Entity.Controls.IsFlying = true;
+                player.Entity.ServerControls.Gliding = true;
+                player.Entity.ServerControls.IsFlying = true;
                 ApplyDunkStyleRotation(player.Entity, traj);
 
                 if (t >= 1.0f)
@@ -570,6 +586,8 @@ namespace BasketballAllstars.Systems
                     player.Entity.Pos.Roll = 0f;
                     player.Entity.Controls.Gliding = false;
                     player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                    player.Entity.ServerControls.Gliding = false;
+                    player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                 }
             }
 
