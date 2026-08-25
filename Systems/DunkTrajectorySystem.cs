@@ -625,12 +625,7 @@ namespace BasketballAllstars.Systems
                 else if (!player.Entity.OnGround)
                 {
                     // Player stepped or fell off a block while holding spacebar:
-                    // Cancel charging without autofiring any jump, and maintain jump suppression until physical release!
-                    if (ClientIsChargingJump)
-                    {
-                        ClientIsChargingJump = false;
-                        ClientJumpCharge = 0f;
-                    }
+                    // Retain accumulated charge and keep jump suppressed so player doesn't jump in mid-air
                 }
 
                 if (SuppressJumpUntilRelease)
