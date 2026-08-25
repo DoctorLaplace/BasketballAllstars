@@ -69,7 +69,7 @@ namespace BasketballAllstars.Entities
             {
                 if (visualDribbleBall != null && visualDribbleBall.Alive)
                 {
-                    visualDribbleBall.Die();
+                    visualDribbleBall.Die(EnumDespawnReason.Removed);
                     visualDribbleBall = null;
                 }
             }
@@ -153,7 +153,7 @@ namespace BasketballAllstars.Entities
             {
                 if (visualDribbleBall != null && visualDribbleBall.Alive)
                 {
-                    visualDribbleBall.Die();
+                    visualDribbleBall.Die(EnumDespawnReason.Removed);
                     visualDribbleBall = null;
                 }
 
@@ -311,7 +311,7 @@ namespace BasketballAllstars.Entities
             // Remove visual dribble ball before spawning throw projectile
             if (visualDribbleBall != null && visualDribbleBall.Alive)
             {
-                visualDribbleBall.Die();
+                visualDribbleBall.Die(EnumDespawnReason.Removed);
                 visualDribbleBall = null;
             }
 
@@ -354,7 +354,7 @@ namespace BasketballAllstars.Entities
         {
             if (visualDribbleBall != null && visualDribbleBall.Alive)
             {
-                visualDribbleBall.Die();
+                visualDribbleBall.Die(EnumDespawnReason.Removed);
                 visualDribbleBall = null;
             }
             base.Die(reason, damageSourceForDeath);
@@ -364,7 +364,7 @@ namespace BasketballAllstars.Entities
         {
             if (visualDribbleBall != null && visualDribbleBall.Alive)
             {
-                visualDribbleBall.Die();
+                visualDribbleBall.Die(EnumDespawnReason.Removed);
                 visualDribbleBall = null;
             }
             base.OnEntityDespawn(despawn);

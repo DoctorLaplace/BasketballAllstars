@@ -549,6 +549,12 @@ namespace BasketballAllstars.Systems
 
                 player.Entity.Pos.SetPos(curX, curY, curZ);
                 player.Entity.Pos.Motion.Set(0, 0, 0);
+                ApplyDunkStyleRotation(player.Entity, traj);
+
+                if (player.Entity.AnimManager != null && !player.Entity.AnimManager.IsAnimationActive("jump"))
+                {
+                    player.Entity.AnimManager.StartAnimation(new AnimationMetaData { Animation = "jump", Code = "jump", Weight = 1.0f, EaseInSpeed = 10f, EaseOutSpeed = 10f });
+                }
 
                 if (t >= 1.0f)
                 {

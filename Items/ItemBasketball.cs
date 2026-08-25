@@ -128,9 +128,25 @@ namespace BasketballAllstars.Items
             // Animate held basketball bouncing from waist straight down to ground in first and third person
             if (target != EnumItemRenderTarget.Gui && target != EnumItemRenderTarget.Ground && renderinfo.Transform != null)
             {
-                bool isAiming = capi.World.Player.Entity.Attributes.GetInt("aiming", 0) == 1;
-                bool inAir = !capi.World.Player.Entity.OnGround;
-                bool inTrajectory = DunkTrajectorySystem.ClientInstance != null && DunkTrajectorySystem.ClientInstance.IsPlayerInTrajectory(capi.World.Player.PlayerUID, out _);
+#pragma warning disable CS0618
+                bool isFp = target == EnumItemRenderTarget.HandFp;
+#pragma warning restore CS0618
+
+                EntityPlayer? holdingEntity = isFp ? capi.World.Player?.Entity : ((renderinfo.InSlot?.Inventory as InventoryBasePlayer)?.Player?.Entity as EntityPlayer);
+                if (holdingEntity == null && renderinfo.InSlot?.Inventory is IOwnedInventory ownedInv)
+                {
+                    holdingEntity = ownedInv.Owner as EntityPlayer;
+                }
+                if (holdingEntity == null)
+                {
+                    holdingEntity = capi.World.Player?.Entity;
+                }
+
+                if (holdingEntity == null) return;
+
+                bool isAiming = holdingEntity.Attributes.GetInt("aiming", 0) == 1;
+                bool inAir = !holdingEntity.OnGround;
+                bool inTrajectory = DunkTrajectorySystem.ClientInstance != null && DunkTrajectorySystem.ClientInstance.IsPlayerInTrajectory(holdingEntity.PlayerUID, out _);
 
                 // Only dribble when standing on ground and not aiming; hold between hands when in mid-air or dunking
                 if (!isAiming && !inAir && !inTrajectory)
@@ -142,9 +158,7 @@ namespace BasketballAllstars.Items
 
                     var tf = renderinfo.Transform.Clone();
 
-#pragma warning disable CS0618
-                    if (target == EnumItemRenderTarget.HandFp)
-#pragma warning restore CS0618
+                    if (isFp)
                     {
                         // In first-person: smooth arc down towards floor and back to hand (moved down 20%)
                         tf.Translation.Y -= 0.08f + bounceSin * 0.54f;
@@ -155,7 +169,7 @@ namespace BasketballAllstars.Items
                         // In third-person: calculate vertical displacement towards floor (moved down 20%)
                         float disp = 0.12f + bounceSin * 0.78f;
 
-                        AttachmentPointAndPose? apap = capi.World.Player.Entity.AnimManager?.Animator?.GetAttachmentPointPose("RightHand");
+                        AttachmentPointAndPose? apap = holdingEntity.AnimManager?.Animator?.GetAttachmentPointPose("RightHand");
                         if (apap?.AnimModelMatrix != null && apap.AnimModelMatrix.Length >= 16)
                         {
                             float[] mat = apap.AnimModelMatrix;

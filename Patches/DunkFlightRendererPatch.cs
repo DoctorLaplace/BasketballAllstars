@@ -66,10 +66,36 @@ namespace BasketballAllstars.Patches
                 {
                     harmony.Patch(gliderTickMethod, prefix: new HarmonyMethod(gliderPrefix));
                 }
+                // 5. Patch EntityPlayerShapeRenderer.loadModelMatrixForPlayer to apply authoritative dunk rotation and bypass yaw clamp
+                var rendererType = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer);
+                var loadModelMatrixMethod = rendererType?.GetMethod("loadModelMatrixForPlayer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                var loadModelMatrixPrefix = typeof(DunkFlightRendererPatch).GetMethod(nameof(LoadModelMatrixForPlayerPrefix), BindingFlags.Public | BindingFlags.Static);
+
+                if (loadModelMatrixMethod != null && loadModelMatrixPrefix != null)
+                {
+                    harmony.Patch(loadModelMatrixMethod, prefix: new HarmonyMethod(loadModelMatrixPrefix));
+                }
             }
             catch (Exception ex)
             {
                 capi.Logger.Error("[BasketballAllstars] Failed to apply DunkFlightRendererPatch: {0}", ex);
+            }
+        }
+
+        public static void LoadModelMatrixForPlayerPrefix(Vintagestory.GameContent.EntityPlayerShapeRenderer __instance, Entity entity)
+        {
+            var dunkSystem = DunkTrajectorySystem.ClientInstance;
+            if (dunkSystem == null) return;
+
+            if (entity is EntityPlayer entityPlayer && dunkSystem.IsPlayerInTrajectory(entityPlayer.PlayerUID, out var traj))
+            {
+                dunkSystem.ApplyDunkStyleRotation(entityPlayer, traj);
+
+                // Set bodyYawLerped and smoothedBodyYaw directly so fast spins/somersaults render without clamping
+                var lerpField = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer).GetField("bodyYawLerped", BindingFlags.NonPublic | BindingFlags.Instance);
+                lerpField?.SetValue(__instance, entityPlayer.BodyYaw);
+                var smoothField = typeof(Vintagestory.GameContent.EntityPlayerShapeRenderer).GetField("smoothedBodyYaw", BindingFlags.NonPublic | BindingFlags.Instance);
+                smoothField?.SetValue(__instance, entityPlayer.BodyYaw);
             }
         }
 

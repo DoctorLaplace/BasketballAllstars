@@ -112,9 +112,17 @@ namespace BasketballAllstars.Systems
                 double dist = posPos.DistanceTo(candPos);
                 if (dist > 1.45) continue;
 
-                // Check immunity cooldown
-                string immunityKey = $"{candidate.PlayerUID}_{possessor.PlayerUID}";
-                if (stealImmunityTimers.TryGetValue(immunityKey, out double expiry) && nowMs < expiry)
+                // Check if candidate is under steal lockout (e.g. just got stolen from)
+                if (stealImmunityTimers.TryGetValue($"lockout_{candidate.PlayerUID}", out double lockExpiry) && nowMs < lockExpiry)
+                {
+                    continue;
+                }
+
+                // Check bidirectional immunity cooldown between these two players
+                string key1 = $"{candidate.PlayerUID}_{possessor.PlayerUID}";
+                string key2 = $"{possessor.PlayerUID}_{candidate.PlayerUID}";
+                if ((stealImmunityTimers.TryGetValue(key1, out double expiry1) && nowMs < expiry1) ||
+                    (stealImmunityTimers.TryGetValue(key2, out double expiry2) && nowMs < expiry2))
                 {
                     continue;
                 }
@@ -132,8 +140,11 @@ namespace BasketballAllstars.Systems
                     // STEAL!
                     TransferBall(possessor, candidate);
 
-                    // Apply 1.0 second immunity against original possessor
-                    stealImmunityTimers[immunityKey] = nowMs + 1000.0;
+                    // Apply 2.5 second bidirectional immunity between stealer and victim
+                    stealImmunityTimers[key1] = nowMs + 2500.0;
+                    stealImmunityTimers[key2] = nowMs + 2500.0;
+                    // Apply 2.5 second steal lockout to the victim so they cannot instantly steal from anyone
+                    stealImmunityTimers[$"lockout_{possessor.PlayerUID}"] = nowMs + 2500.0;
 
                     // Play steal effects
                     BasketballAudioParticles.PlayStealSound(sapi.World, candPos);
@@ -188,8 +199,8 @@ namespace BasketballAllstars.Systems
                         }
                     }
 
-                    // Apply immunity cooldown (1.5s)
-                    SetStealImmunity(stealer.PlayerUID, targetDummy.EntityId, nowMs + 1500.0);
+                    // Apply immunity cooldown (2.5s)
+                    SetStealImmunity(stealer.PlayerUID, targetDummy.EntityId, nowMs + 2500.0);
 
                     // Play steal effects
                     BasketballAudioParticles.PlayStealSound(sapi.World, playerPos);

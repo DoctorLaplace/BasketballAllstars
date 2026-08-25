@@ -19,8 +19,8 @@ namespace BasketballAllstars.Systems
                 pos.X, pos.Y, pos.Z,
                 null,
                 pitch,
-                21f,
-                0.65f
+                28f,
+                0.88f
             );
         }
 
@@ -28,14 +28,14 @@ namespace BasketballAllstars.Systems
         {
             // Crisp raw bounce sound for physical impacts with the court/world
             float pitch = 0.82f + (float)rand.NextDouble() * 0.08f;
-            float volume = Math.Clamp(impactSpeed * 1.1f, 0.3f, 0.85f);
+            float volume = Math.Clamp(impactSpeed * 1.5f, 0.40f, 1.15f);
 
             world.PlaySoundAt(
                 new AssetLocation("basketballallstars:sounds/dribble_original"),
                 pos.X, pos.Y, pos.Z,
                 null,
                 pitch,
-                27f,
+                36f,
                 volume
             );
         }

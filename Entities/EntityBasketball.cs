@@ -62,7 +62,7 @@ namespace BasketballAllstars.Entities
 
         public override void Die(EnumDespawnReason reason = EnumDespawnReason.Death, DamageSource damageSourceForDeath = null)
         {
-            if (reason == EnumDespawnReason.Death && World != null && World.Side == EnumAppSide.Server)
+            if (Collectible && reason == EnumDespawnReason.Death && World != null && World.Side == EnumAppSide.Server)
             {
                 Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
                 if (ballItem != null)
