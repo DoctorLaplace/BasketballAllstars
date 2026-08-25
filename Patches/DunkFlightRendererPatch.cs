@@ -104,7 +104,7 @@ namespace BasketballAllstars.Patches
                     // Apply style rotation (360 spin, front flip, or tomahawk slam)
                     dunkSystem.ApplyDunkStyleRotation(entityPlayer, traj);
                 }
-                else if (dunkSystem.ClientIsChargingJump && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
+                else if ((dunkSystem.ClientIsChargingJump || dunkSystem.WasSpaceHeld) && entityPlayer.PlayerUID == dunkSystem.LocalPlayerUid)
                 {
                     // Suppress vanilla normal jump while charging super jump / slam dunk to prevent scrunching/hovering
                     controls.Jump = false;

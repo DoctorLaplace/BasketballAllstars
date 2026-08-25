@@ -54,6 +54,7 @@ namespace BasketballAllstars.Systems
         public BlockPos? ClientLockedHoopPos { get; set; } = null;
         public string ClientLockedDunkerUid { get; set; } = "";
         private bool wasSpaceHeld = false;
+        public bool WasSpaceHeld => wasSpaceHeld;
 
         public bool HasActiveClientTrajectory => clientTrajectories.Count > 0;
         public string LocalPlayerUid => (api as ICoreClientAPI)?.World.Player?.PlayerUID ?? "";
@@ -595,20 +596,35 @@ namespace BasketballAllstars.Systems
             bool spaceDown = capi.Input.IsHotKeyPressed("jump") ||
                              (capi.Input.KeyboardKeyStateRaw != null && (int)GlKeys.Space < capi.Input.KeyboardKeyStateRaw.Length && capi.Input.KeyboardKeyStateRaw[(int)GlKeys.Space]);
 
-            if (spaceDown && player.Entity.OnGround && (holdingBall || !string.IsNullOrEmpty(ClientLockedDunkerUid)))
+            if (spaceDown)
             {
-                ClientIsChargingJump = true;
-                ClientJumpCharge = Math.Min(ClientJumpCharge + dt * 0.8f, 1.0f);
-                wasSpaceHeld = true;
-
-                // Suppress vanilla immediate jump while charging so player stays grounded to build power
-                if (player.Entity.Pos.Motion.Y > 0)
+                if (player.Entity.OnGround && (holdingBall || !string.IsNullOrEmpty(ClientLockedDunkerUid)))
                 {
-                    player.Entity.Pos.Motion.Y = 0;
+                    ClientIsChargingJump = true;
+                    ClientJumpCharge = Math.Min(ClientJumpCharge + dt * 0.8f, 1.0f);
+                    wasSpaceHeld = true;
+
+                    // Suppress vanilla immediate jump while charging so player stays grounded to build power
+                    if (player.Entity.Pos.Motion.Y > 0)
+                    {
+                        player.Entity.Pos.Motion.Y = 0;
+                    }
+                }
+                else if (!player.Entity.OnGround)
+                {
+                    // Player stepped or fell off a block while holding spacebar:
+                    // Cancel charging without autofiring any jump!
+                    if (ClientIsChargingJump)
+                    {
+                        ClientIsChargingJump = false;
+                        ClientJumpCharge = 0f;
+                        wasSpaceHeld = false;
+                    }
                 }
             }
             else
             {
+                // Spacebar physically released: only fire if we were charging while grounded
                 if (wasSpaceHeld && ClientIsChargingJump)
                 {
                     if (ClientJumpCharge >= 0.50f && player.Entity.OnGround)
