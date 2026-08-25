@@ -358,9 +358,18 @@ namespace BasketballAllstars.Systems
         {
             if (api is not ICoreClientAPI capi) return;
             var player = capi.World.PlayerByUid(msg.PlayerUid);
-            if (player?.Entity != null && msg.ReleaseMotion != null)
+            if (player?.Entity != null)
             {
-                player.Entity.Pos.Motion.Set(msg.ReleaseMotion.X, msg.ReleaseMotion.Y, msg.ReleaseMotion.Z);
+                player.Entity.WalkPitch = 0f;
+                player.Entity.Pos.Roll = 0f;
+                player.Entity.Controls.Gliding = false;
+                player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                player.Entity.AnimManager?.StopAnimation("jump");
+                player.Entity.AnimManager?.StopAnimation("glidingsolo");
+                if (msg.ReleaseMotion != null)
+                {
+                    player.Entity.Pos.Motion.Set(msg.ReleaseMotion.X, msg.ReleaseMotion.Y, msg.ReleaseMotion.Z);
+                }
             }
             clientTrajectories.Remove(msg.PlayerUid);
         }
@@ -551,14 +560,15 @@ namespace BasketballAllstars.Systems
                 player.Entity.Pos.Motion.Set(0, 0, 0);
                 ApplyDunkStyleRotation(player.Entity, traj);
 
-                if (player.Entity.AnimManager != null && !player.Entity.AnimManager.IsAnimationActive("jump"))
-                {
-                    player.Entity.AnimManager.StartAnimation(new AnimationMetaData { Animation = "jump", Code = "jump", Weight = 1.0f, EaseInSpeed = 10f, EaseOutSpeed = 10f });
-                }
-
                 if (t >= 1.0f)
                 {
                     toRemove.Add(kvp.Key);
+                    player.Entity.WalkPitch = 0f;
+                    player.Entity.Pos.Roll = 0f;
+                    player.Entity.Controls.Gliding = false;
+                    player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                    player.Entity.AnimManager?.StopAnimation("jump");
+                    player.Entity.AnimManager?.StopAnimation("glidingsolo");
                 }
             }
 
