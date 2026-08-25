@@ -162,12 +162,12 @@ namespace BasketballAllstars.Systems
         public static void PlayClashSound(IWorldAccessor world, Vec3d clashPos)
         {
             world.PlaySoundAt(
-                new AssetLocation("basketballallstars:sounds/nbajam"),
+                new AssetLocation("game:sounds/effect/anvilhit"),
                 clashPos.X, clashPos.Y, clashPos.Z,
                 null,
                 false,
-                72f,
-                1.15f
+                48f,
+                1.1f
             );
         }
 

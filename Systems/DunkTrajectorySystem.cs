@@ -31,6 +31,7 @@ namespace BasketballAllstars.Systems
         public BlockPos? TargetHoopPos { get; set; } = null;
         public bool IsSuspended { get; set; } = false;
         public Vec3d SuspendedPos { get; set; } = new Vec3d();
+        public double SuspendStartMs { get; set; } = 0;
         public int DunkStyle { get; set; } = 0;
         public int Revolutions { get; set; } = 1;
         public float FlightYaw { get; set; } = 0f;
@@ -311,22 +312,26 @@ namespace BasketballAllstars.Systems
             {
                 traj.IsSuspended = true;
                 traj.SuspendedPos = freezePos.Clone();
+                traj.SuspendStartMs = api.World.ElapsedMilliseconds;
             }
             if (clientTrajectories.TryGetValue(playerUid, out var cTraj))
             {
                 cTraj.IsSuspended = true;
                 cTraj.SuspendedPos = freezePos.Clone();
+                cTraj.SuspendStartMs = api.World.ElapsedMilliseconds;
             }
         }
 
         public void ResumeTrajectory(string playerUid)
         {
-            if (activeTrajectories.TryGetValue(playerUid, out var traj))
+            if (activeTrajectories.TryGetValue(playerUid, out var traj) && traj.IsSuspended)
             {
+                traj.StartLocalMs += (api.World.ElapsedMilliseconds - traj.SuspendStartMs);
                 traj.IsSuspended = false;
             }
-            if (clientTrajectories.TryGetValue(playerUid, out var cTraj))
+            if (clientTrajectories.TryGetValue(playerUid, out var cTraj) && cTraj.IsSuspended)
             {
+                cTraj.StartLocalMs += (api.World.ElapsedMilliseconds - cTraj.SuspendStartMs);
                 cTraj.IsSuspended = false;
             }
         }
@@ -424,6 +429,10 @@ namespace BasketballAllstars.Systems
                 {
                     player.Entity.Pos.SetPos(traj.SuspendedPos);
                     player.Entity.Pos.Motion.Set(0, 0, 0);
+                    player.Entity.ServerControls.Gliding = true;
+                    player.Entity.ServerControls.IsFlying = true;
+                    player.Entity.Controls.Gliding = true;
+                    player.Entity.Controls.IsFlying = true;
                     continue;
                 }
 
@@ -570,6 +579,11 @@ namespace BasketballAllstars.Systems
                 {
                     player.Entity.Pos.SetPos(traj.SuspendedPos);
                     player.Entity.Pos.Motion.Set(0, 0, 0);
+                    player.Entity.Controls.Gliding = true;
+                    player.Entity.Controls.IsFlying = true;
+                    player.Entity.ServerControls.Gliding = true;
+                    player.Entity.ServerControls.IsFlying = true;
+                    ApplyDunkStyleRotation(player.Entity, traj);
                     continue;
                 }
 

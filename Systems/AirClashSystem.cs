@@ -126,6 +126,14 @@ namespace BasketballAllstars.Systems
             if (!activeDuels.TryGetValue(duelId, out var duel) || duel.IsFinished) return;
 
             bool isDunker = player.PlayerUID == duel.DunkerUid;
+
+            if (completedInputs < 0)
+            {
+                // Player made a mistake: immediate defeat!
+                ResolveDuel(duel, winnerIsDunker: !isDunker);
+                return;
+            }
+
             if (isDunker)
             {
                 duel.DunkerProgress = Math.Min(completedInputs, 10);

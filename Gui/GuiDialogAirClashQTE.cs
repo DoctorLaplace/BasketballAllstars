@@ -3,10 +3,15 @@ using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using BasketballAllstars.Network;
-using BasketballAllstars.Systems;
 
 namespace BasketballAllstars.Gui
 {
+    /// <summary>
+    /// Sleek, minimalist mid-air clash QTE display located at the top center of the screen.
+    /// Displays the 10-arrow sequence in a smoothly sliding horizontal strip where
+    /// the active arrow is in the center, completed arrows slide left and turn green,
+    /// and making a single mistake immediately fails the clash.
+    /// </summary>
     public class GuiDialogAirClashQTE : GuiDialogGeneric
     {
         public static GuiDialogAirClashQTE? Instance { get; private set; }
@@ -18,11 +23,10 @@ namespace BasketballAllstars.Gui
         private readonly string interceptorUid;
         private readonly byte[] sequence;
         private int myProgress = 0;
-        private int opponentProgress = 0;
-        private float errorShakeTimer = 0f;
-        private string resultMessage = "";
-        private float resultCloseTimer = 0f;
-        private bool isWinner = false;
+        private double scrollProgress = 0.0;
+        private bool hasFailed = false;
+        private bool isFinished = false;
+        private float closeTimer = 0f;
 
         public GuiDialogAirClashQTE(ICoreClientAPI capi, AirClashStartMessage msg) : base("AERIAL CLASH!", capi)
         {
@@ -50,165 +54,74 @@ namespace BasketballAllstars.Gui
         {
             ClearComposers();
 
-            double width = 640;
-            double height = 220;
+            double width = 760;
+            double height = 80;
 
-            ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialog.WithAlignment(EnumDialogArea.CenterMiddle);
+            // Position near the top of the screen with comfortable top margin
+            ElementBounds dialogBounds = ElementStdBounds.AutosizedMainDialog
+                .WithAlignment(EnumDialogArea.CenterTop)
+                .WithFixedPadding(0, 50);
+
             ElementBounds bgBounds = ElementBounds.Fixed(0, 0, width, height);
 
-            var composer = capi.Gui.CreateCompo("airClashGui", dialogBounds)
-                .AddShadedDialogBG(bgBounds)
+            var composer = capi.Gui.CreateCompo("airClashStrip", dialogBounds)
                 .BeginChildElements(bgBounds)
-                .AddDynamicCustomDraw(ElementBounds.Fixed(10, 10, width - 20, height - 20), DrawClashCanvas, "clashCanvas")
+                .AddDynamicCustomDraw(ElementBounds.Fixed(0, 0, width, height), DrawArrowStrip, "arrowCanvas")
                 .EndChildElements();
 
             SingleComposer = composer;
             SingleComposer.Compose();
         }
 
-        private void DrawClashCanvas(Context ctx, ImageSurface surface, ElementBounds currentBounds)
+        private void DrawArrowStrip(Context ctx, ImageSurface surface, ElementBounds currentBounds)
         {
             double w = currentBounds.InnerWidth;
             double h = currentBounds.InnerHeight;
+            double centerX = w * 0.5;
+            double centerY = h * 0.5;
+            double slotPitch = 56.0;
 
-            // Background subtle gradient
-            ctx.SetSourceRGBA(0.05, 0.05, 0.08, 0.85);
-            ctx.Paint();
-
-            // Title Banner
-            ctx.SelectFontFace("Sans", FontSlant.Normal, FontWeight.Bold);
-            ctx.SetFontSize(22.0);
-
-            if (!string.IsNullOrEmpty(resultMessage))
+            for (int i = 0; i < sequence.Length; i++)
             {
-                if (isWinner)
-                {
-                    ctx.SetSourceRGBA(0.2, 1.0, 0.3, 1.0);
-                    ctx.MoveTo(w * 0.5 - 90, 35);
-                    ctx.ShowText("VICTORY! CLASH WON!");
-                }
-                else
-                {
-                    ctx.SetSourceRGBA(1.0, 0.25, 0.25, 1.0);
-                    ctx.MoveTo(w * 0.5 - 90, 35);
-                    ctx.ShowText("DEFLECTED! CLASH LOST!");
-                }
-            }
-            else
-            {
-                ctx.SetSourceRGBA(1.0, 0.85, 0.1, 1.0);
-                ctx.MoveTo(w * 0.5 - 110, 35);
-                ctx.ShowText("MID-AIR CLASH! PARRY DUEL!");
-            }
-
-            // Subtitle
-            ctx.SetFontSize(13.0);
-            ctx.SetSourceRGBA(0.8, 0.8, 0.85, 0.9);
-            ctx.MoveTo(w * 0.5 - 140, 58);
-            ctx.ShowText("Input the 10 directional arrow keys (WASD / Arrows) rapidly!");
-
-            // Draw 10 Arrow Buttons
-            double startX = 30;
-            double arrowY = 80;
-            double slotSize = 52;
-            double spacing = 6;
-
-            for (int i = 0; i < 10; i++)
-            {
-                double x = startX + i * (slotSize + spacing);
                 byte dir = sequence[i];
+                double slotX = centerX + (i - scrollProgress) * slotPitch;
 
-                // Shake offset on current slot if in error
-                double offsetX = 0;
-                if (i == myProgress && errorShakeTimer > 0f)
-                {
-                    offsetX = Math.Sin(errorShakeTimer * 40.0) * 4.0;
-                }
-
-                // Slot box
-                ctx.Rectangle(x + offsetX, arrowY, slotSize, slotSize);
+                if (slotX < -40 || slotX > w + 40) continue;
 
                 if (i < myProgress)
                 {
-                    // Completed slot (green)
-                    ctx.SetSourceRGBA(0.15, 0.85, 0.25, 0.95);
-                    ctx.FillPreserve();
-                    ctx.SetSourceRGBA(0.8, 1.0, 0.8, 1.0);
-                    ctx.LineWidth = 2.0;
-                    ctx.Stroke();
+                    // Completed Arrow: Sleek vibrant green
+                    DrawArrowIcon(ctx, slotX, centerY, dir, 1.0, 0.22, 0.95, 0.38, 0.95);
                 }
                 else if (i == myProgress)
                 {
-                    // Active current slot (glowing gold or error red)
-                    if (errorShakeTimer > 0f)
+                    if (hasFailed)
                     {
-                        ctx.SetSourceRGBA(0.9, 0.2, 0.2, 0.95);
+                        // Failed Arrow: Bright Red
+                        DrawArrowIcon(ctx, slotX, centerY, dir, 1.30, 1.0, 0.20, 0.20, 1.0);
                     }
                     else
                     {
-                        ctx.SetSourceRGBA(1.0, 0.75, 0.1, 0.95);
+                        // Active Current Arrow: Glowing crisp white in center, slightly enlarged
+                        // Subtle soft glow background
+                        ctx.Save();
+                        ctx.Arc(slotX, centerY, 24.0, 0, Math.PI * 2.0);
+                        ctx.SetSourceRGBA(1.0, 0.88, 0.20, 0.25);
+                        ctx.Fill();
+                        ctx.Restore();
+
+                        DrawArrowIcon(ctx, slotX, centerY, dir, 1.25, 1.0, 1.0, 1.0, 1.0);
                     }
-                    ctx.FillPreserve();
-                    ctx.SetSourceRGBA(1.0, 1.0, 1.0, 1.0);
-                    ctx.LineWidth = 3.0;
-                    ctx.Stroke();
                 }
                 else
                 {
-                    // Pending slot (dark gray)
-                    ctx.SetSourceRGBA(0.2, 0.22, 0.28, 0.85);
-                    ctx.FillPreserve();
-                    ctx.SetSourceRGBA(0.4, 0.45, 0.55, 0.8);
-                    ctx.LineWidth = 1.5;
-                    ctx.Stroke();
+                    // Upcoming Arrows: Semi-transparent sleek slate white
+                    DrawArrowIcon(ctx, slotX, centerY, dir, 0.95, 0.82, 0.88, 0.95, 0.38);
                 }
-
-                // Draw Directional Arrow
-                DrawArrowIcon(ctx, x + offsetX + slotSize * 0.5, arrowY + slotSize * 0.5, dir, i <= myProgress);
             }
-
-            // Duel Progress Bar (You vs Opponent)
-            double barY = 155;
-            double barWidth = w - 60;
-            double barHeight = 14;
-
-            ctx.Rectangle(startX, barY, barWidth, barHeight);
-            ctx.SetSourceRGBA(0.1, 0.12, 0.16, 0.9);
-            ctx.FillPreserve();
-            ctx.SetSourceRGBA(0.3, 0.35, 0.45, 0.8);
-            ctx.LineWidth = 1.0;
-            ctx.Stroke();
-
-            // Your progress fill (Cyan)
-            double myFillWidth = (myProgress / 10.0) * barWidth;
-            if (myFillWidth > 0)
-            {
-                ctx.Rectangle(startX, barY, myFillWidth, barHeight * 0.5);
-                ctx.SetSourceRGBA(0.0, 0.85, 0.95, 0.9);
-                ctx.Fill();
-            }
-
-            // Opponent progress fill (Orange)
-            double oppFillWidth = (opponentProgress / 10.0) * barWidth;
-            if (oppFillWidth > 0)
-            {
-                ctx.Rectangle(startX, barY + barHeight * 0.5, oppFillWidth, barHeight * 0.5);
-                ctx.SetSourceRGBA(0.95, 0.45, 0.05, 0.9);
-                ctx.Fill();
-            }
-
-            // Progress labels
-            ctx.SetFontSize(12.0);
-            ctx.SetSourceRGBA(0.0, 0.95, 1.0, 1.0);
-            ctx.MoveTo(startX, barY + 30);
-            ctx.ShowText($"YOU: {myProgress}/10");
-
-            ctx.SetSourceRGBA(1.0, 0.55, 0.1, 1.0);
-            ctx.MoveTo(w - startX - 110, barY + 30);
-            ctx.ShowText($"OPPONENT: {opponentProgress}/10");
         }
 
-        private void DrawArrowIcon(Context ctx, double cx, double cy, byte dir, bool isHighlighted)
+        private void DrawArrowIcon(Context ctx, double cx, double cy, byte dir, double scale, double r, double g, double b, double a)
         {
             ctx.Save();
             ctx.Translate(cx, cy);
@@ -217,32 +130,25 @@ namespace BasketballAllstars.Gui
             double angle = dir * (Math.PI / 2.0);
             ctx.Rotate(angle);
 
-            // Draw clean polygon arrow
-            ctx.MoveTo(0, -14);
-            ctx.LineTo(12, 2);
-            ctx.LineTo(5, 2);
-            ctx.LineTo(5, 13);
-            ctx.LineTo(-5, 13);
-            ctx.LineTo(-5, 2);
-            ctx.LineTo(-12, 2);
+            // Draw crisp modern polygon chevron arrow
+            ctx.MoveTo(0, -15 * scale);
+            ctx.LineTo(12 * scale, 1 * scale);
+            ctx.LineTo(5 * scale, 1 * scale);
+            ctx.LineTo(5 * scale, 13 * scale);
+            ctx.LineTo(-5 * scale, 13 * scale);
+            ctx.LineTo(-5 * scale, 1 * scale);
+            ctx.LineTo(-12 * scale, 1 * scale);
             ctx.ClosePath();
 
-            if (isHighlighted)
-            {
-                ctx.SetSourceRGBA(1.0, 1.0, 1.0, 1.0);
-            }
-            else
-            {
-                ctx.SetSourceRGBA(0.65, 0.7, 0.78, 0.85);
-            }
-
+            ctx.SetSourceRGBA(r, g, b, a);
             ctx.Fill();
+
             ctx.Restore();
         }
 
         public override void OnKeyDown(KeyEvent args)
         {
-            if (!string.IsNullOrEmpty(resultMessage)) return;
+            if (isFinished || hasFailed) return;
 
             byte? inputDir = null;
             if (args.KeyCode == (int)GlKeys.W || args.KeyCode == (int)GlKeys.Up) inputDir = 0;
@@ -250,16 +156,14 @@ namespace BasketballAllstars.Gui
             else if (args.KeyCode == (int)GlKeys.S || args.KeyCode == (int)GlKeys.Down) inputDir = 2;
             else if (args.KeyCode == (int)GlKeys.A || args.KeyCode == (int)GlKeys.Left) inputDir = 3;
 
-            if (inputDir.HasValue && myProgress < 10)
+            if (inputDir.HasValue && myProgress < sequence.Length)
             {
                 args.Handled = true;
                 if (inputDir.Value == sequence[myProgress])
                 {
-                    // Correct input!
+                    // Correct arrow!
                     myProgress++;
-                    errorShakeTimer = 0f;
 
-                    // Send progress to server
                     var channel = capi.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
                     channel?.SendPacket(new AirClashInputProgressMessage
                     {
@@ -267,52 +171,67 @@ namespace BasketballAllstars.Gui
                         CompletedInputs = myProgress
                     });
 
-                    // Play success click sound
+                    // Play crisp tick sound
                     capi.World.PlaySoundAt(new AssetLocation("game:sounds/tick"), capi.World.Player.Entity.Pos.X, capi.World.Player.Entity.Pos.Y, capi.World.Player.Entity.Pos.Z, null, true, 8f, 1.2f + myProgress * 0.08f);
 
-                    SingleComposer?.GetCustomDraw("clashCanvas")?.Redraw();
+                    if (myProgress >= sequence.Length)
+                    {
+                        isFinished = true;
+                        closeTimer = 0.6f;
+                    }
                 }
                 else
                 {
-                    // Incorrect input!
-                    errorShakeTimer = 0.25f;
+                    // Single mistake fails the clash immediately!
+                    hasFailed = true;
+                    isFinished = true;
+                    closeTimer = 0.6f;
+
+                    // Send failure code (-1) to server to instantly award victory to the opponent
+                    var channel = capi.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
+                    channel?.SendPacket(new AirClashInputProgressMessage
+                    {
+                        DuelId = duelId,
+                        CompletedInputs = -1
+                    });
+
                     capi.World.PlaySoundAt(new AssetLocation("game:sounds/effect/woodbreak"), capi.World.Player.Entity.Pos.X, capi.World.Player.Entity.Pos.Y, capi.World.Player.Entity.Pos.Z, null, true, 8f, 0.8f);
-                    SingleComposer?.GetCustomDraw("clashCanvas")?.Redraw();
                 }
+
+                SingleComposer?.GetCustomDraw("arrowCanvas")?.Redraw();
             }
         }
 
         public void UpdateProgress(int dunkerProgress, int interceptorProgress)
         {
-            bool amDunker = capi.World.Player.PlayerUID == dunkerUid;
-            opponentProgress = amDunker ? interceptorProgress : dunkerProgress;
-            SingleComposer?.GetCustomDraw("clashCanvas")?.Redraw();
+            // Optional progress sync if needed
         }
 
         public void ShowResult(bool dunkerWon)
         {
-            bool amDunker = capi.World.Player.PlayerUID == dunkerUid;
-            isWinner = (amDunker && dunkerWon) || (!amDunker && !dunkerWon);
-            resultMessage = isWinner ? "VICTORY!" : "DEFEAT!";
-            resultCloseTimer = 1.4f;
-
-            SingleComposer?.GetCustomDraw("clashCanvas")?.Redraw();
+            isFinished = true;
+            if (closeTimer <= 0f)
+            {
+                closeTimer = 0.5f;
+            }
         }
 
         public override void OnRenderGUI(float deltaTime)
         {
             base.OnRenderGUI(deltaTime);
 
-            if (errorShakeTimer > 0f)
+            // Smooth sliding animation of the arrow strip towards current arrow
+            double targetScroll = myProgress;
+            if (Math.Abs(scrollProgress - targetScroll) > 0.001)
             {
-                errorShakeTimer -= deltaTime;
-                SingleComposer?.GetCustomDraw("clashCanvas")?.Redraw();
+                scrollProgress += (targetScroll - scrollProgress) * Math.Min(deltaTime * 18.0, 1.0);
+                SingleComposer?.GetCustomDraw("arrowCanvas")?.Redraw();
             }
 
-            if (!string.IsNullOrEmpty(resultMessage))
+            if (isFinished)
             {
-                resultCloseTimer -= deltaTime;
-                if (resultCloseTimer <= 0f)
+                closeTimer -= deltaTime;
+                if (closeTimer <= 0f)
                 {
                     TryClose();
                 }
