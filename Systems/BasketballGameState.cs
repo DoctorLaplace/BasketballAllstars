@@ -110,9 +110,17 @@ namespace BasketballAllstars.Systems
             Vec3f posLookF = possessor.Entity.Pos.GetViewVector().Normalize();
             Vec3d posLook = new Vec3d(posLookF.X, posLookF.Y, posLookF.Z);
 
+            // Do not allow ground steals if possessor is in an active air clash duel or airborne trajectory
+            if (AirClashSystem.Instance?.IsPlayerInDuel(possessor.PlayerUID) == true) return;
+            if (DunkTrajectorySystem.Instance?.IsPlayerInTrajectory(possessor.PlayerUID, out _) == true) return;
+
             foreach (IServerPlayer candidate in sapi.World.AllOnlinePlayers)
             {
                 if (candidate.PlayerUID == possessor.PlayerUID || candidate.Entity == null || !candidate.Entity.Alive || candidate.InventoryManager == null) continue;
+
+                // Do not allow stealing from or by candidates in an active air clash duel or airborne trajectory
+                if (AirClashSystem.Instance?.IsPlayerInDuel(candidate.PlayerUID) == true) continue;
+                if (DunkTrajectorySystem.Instance?.IsPlayerInTrajectory(candidate.PlayerUID, out _) == true) continue;
 
                 // Check distance (< 1.45m)
                 Vec3d candPos = candidate.Entity.Pos.XYZ;
@@ -214,6 +222,13 @@ namespace BasketballAllstars.Systems
                     BasketballAudioParticles.SpawnBounceParticles(sapi.World, playerPos);
                 }
             }
+        }
+
+        public void SetPlayerImmunity(string playerUid1, string playerUid2, double durationMs)
+        {
+            double expiryMs = (api?.World?.ElapsedMilliseconds ?? 0) + durationMs;
+            stealImmunityTimers[$"{playerUid1}_{playerUid2}"] = expiryMs;
+            stealImmunityTimers[$"{playerUid2}_{playerUid1}"] = expiryMs;
         }
 
         public void SetStealImmunity(string playerUid, long dummyEntityId, double expiryMs)

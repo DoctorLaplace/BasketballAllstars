@@ -32,6 +32,9 @@ namespace BasketballAllstars.Gui
         private float originalMouseYaw = 0f;
         private float originalMousePitch = 0f;
         private bool cameraOverridden = false;
+        private bool switchedToThirdPerson = false;
+        private float originalCameraOffsetZ = 0f;
+        private float originalCameraOffsetY = 0f;
 
         public GuiDialogAirClashQTE(ICoreClientAPI capi, AirClashStartMessage msg) : base("AERIAL CLASH!", capi)
         {
@@ -57,6 +60,29 @@ namespace BasketballAllstars.Gui
                 originalMousePitch = capi.Input.MousePitch;
                 capi.Input.MousePitch = -0.55f; // Angled down from above (negative pitch looks down)
                 cameraOverridden = true;
+
+                // If currently in FirstPerson, switch to 3rd person perspective
+                if (capi.World.Player.CameraMode == EnumCameraMode.FirstPerson)
+                {
+                    foreach (var key in new[] { "perspective", "toggleperspective", "cameramode", "cyclecamera", "viewmode" })
+                    {
+                        if (capi.Input.HotKeys.TryGetValue(key, out var hk) && hk?.Handler != null)
+                        {
+                            hk.Handler(hk.CurrentMapping);
+                            switchedToThirdPerson = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Move camera further back and slightly higher
+                if (capi.Render?.CameraOffset != null)
+                {
+                    originalCameraOffsetZ = capi.Render.CameraOffset.Translation.Z;
+                    originalCameraOffsetY = capi.Render.CameraOffset.Translation.Y;
+                    capi.Render.CameraOffset.Translation.Z -= 4.0f;
+                    capi.Render.CameraOffset.Translation.Y += 1.5f;
+                }
             }
 
             ComposeDialog();
@@ -262,11 +288,35 @@ namespace BasketballAllstars.Gui
 
         public override void OnGuiClosed()
         {
-            // Restore original camera angles
+            // Restore original camera angles, offset, and perspective
             if (cameraOverridden && capi.World.Player != null)
             {
                 capi.Input.MouseYaw = originalMouseYaw;
                 capi.Input.MousePitch = originalMousePitch;
+
+                if (capi.Render?.CameraOffset != null)
+                {
+                    capi.Render.CameraOffset.Translation.Z = originalCameraOffsetZ;
+                    capi.Render.CameraOffset.Translation.Y = originalCameraOffsetY;
+                }
+
+                if (switchedToThirdPerson)
+                {
+                    foreach (var key in new[] { "perspective", "toggleperspective", "cameramode", "cyclecamera", "viewmode" })
+                    {
+                        if (capi.Input.HotKeys.TryGetValue(key, out var hk) && hk?.Handler != null)
+                        {
+                            int safety = 0;
+                            while (capi.World.Player.CameraMode != EnumCameraMode.FirstPerson && safety++ < 4)
+                            {
+                                hk.Handler(hk.CurrentMapping);
+                            }
+                            break;
+                        }
+                    }
+                    switchedToThirdPerson = false;
+                }
+
                 cameraOverridden = false;
             }
 

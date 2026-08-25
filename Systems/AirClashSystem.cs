@@ -48,6 +48,18 @@ namespace BasketballAllstars.Systems
             }
         }
 
+        public bool IsPlayerInDuel(string playerUid)
+        {
+            foreach (var duel in activeDuels.Values)
+            {
+                if (!duel.IsFinished && (duel.DunkerUid == playerUid || duel.InterceptorUid == playerUid))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // ========================================================================
         // Server Clash Detection & State Machine
         // ========================================================================
@@ -97,9 +109,9 @@ namespace BasketballAllstars.Systems
             DunkTrajectorySystem.Instance?.SuspendTrajectory(dunker.PlayerUID, clashPos);
             DunkTrajectorySystem.Instance?.SuspendTrajectory(interceptor.PlayerUID, clashPos.AddCopy(0.3, 0, 0.3));
 
-            // Generate 10 random arrow keys (0: Up, 1: Right, 2: Down, 3: Left)
-            byte[] sequence = new byte[10];
-            for (int i = 0; i < 10; i++)
+            // Generate 5 random arrow keys (0: Up, 1: Right, 2: Down, 3: Left)
+            byte[] sequence = new byte[5];
+            for (int i = 0; i < sequence.Length; i++)
             {
                 sequence[i] = (byte)rand.Next(0, 4);
             }
@@ -119,6 +131,9 @@ namespace BasketballAllstars.Systems
             // Audio & Spark Effects
             BasketballAudioParticles.PlayClashSound(api.World, clashPos);
             BasketballAudioParticles.SpawnClashSparks(api.World, clashPos);
+
+            // Steal immunity during active clash
+            BasketballGameState.ServerInstance?.SetPlayerImmunity(dunker.PlayerUID, interceptor.PlayerUID, 15000.0);
 
             // Broadcast duel start to both players
             var serverChannel = (api as ICoreServerAPI)?.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
@@ -140,6 +155,7 @@ namespace BasketballAllstars.Systems
             if (!activeDuels.TryGetValue(duelId, out var duel) || duel.IsFinished) return;
 
             bool isDunker = player.PlayerUID == duel.DunkerUid;
+            int targetCount = duel.QTESequence?.Length ?? 5;
 
             if (completedInputs < 0)
             {
@@ -150,11 +166,11 @@ namespace BasketballAllstars.Systems
 
             if (isDunker)
             {
-                duel.DunkerProgress = Math.Min(completedInputs, 10);
+                duel.DunkerProgress = Math.Min(completedInputs, targetCount);
             }
             else if (player.PlayerUID == duel.InterceptorUid)
             {
-                duel.InterceptorProgress = Math.Min(completedInputs, 10);
+                duel.InterceptorProgress = Math.Min(completedInputs, targetCount);
             }
 
             // Sync progress
@@ -166,12 +182,12 @@ namespace BasketballAllstars.Systems
                 InterceptorProgress = duel.InterceptorProgress
             });
 
-            // Check if someone reached 10 inputs
-            if (duel.DunkerProgress >= 10)
+            // Check if someone reached target inputs
+            if (duel.DunkerProgress >= targetCount)
             {
                 ResolveDuel(duel, winnerIsDunker: true);
             }
-            else if (duel.InterceptorProgress >= 10)
+            else if (duel.InterceptorProgress >= targetCount)
             {
                 ResolveDuel(duel, winnerIsDunker: false);
             }
@@ -190,17 +206,45 @@ namespace BasketballAllstars.Systems
 
             var serverChannel = sapi.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
 
+            // Fetch active trajectories before cancellation to obtain approach vectors
+            var dunkerTraj = DunkTrajectorySystem.Instance?.GetActiveTrajectory(duel.DunkerUid);
+            var interceptorTraj = DunkTrajectorySystem.Instance?.GetActiveTrajectory(duel.InterceptorUid);
+
+            // Determine approach direction of the interceptor (from interceptor start position towards clash position)
+            Vec3d interceptorOriginDir = new Vec3d(0, 0, 1);
+            if (interceptorTraj != null)
+            {
+                double dX = interceptorTraj.StartPos.X - duel.ClashPos.X;
+                double dZ = interceptorTraj.StartPos.Z - duel.ClashPos.Z;
+                double len = Math.Sqrt(dX * dX + dZ * dZ);
+                if (len > 0.05)
+                {
+                    interceptorOriginDir = new Vec3d(dX / len, 0, dZ / len);
+                }
+            }
+            else if (dunkerTraj != null)
+            {
+                double dX = dunkerTraj.StartPos.X - duel.ClashPos.X;
+                double dZ = dunkerTraj.StartPos.Z - duel.ClashPos.Z;
+                double len = Math.Sqrt(dX * dX + dZ * dZ);
+                if (len > 0.05)
+                {
+                    interceptorOriginDir = new Vec3d(dX / len, 0, dZ / len);
+                }
+            }
+
             if (winnerIsDunker)
             {
-                // Dunker won the clash! Deflect interceptor and resume dunk
+                // Dunker won the clash! Deflect interceptor back in the opposite angle they came from and resume dunk
                 BasketballAudioParticles.PlayClashSound(api.World, duel.ClashPos);
                 BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
 
+                DunkTrajectorySystem.Instance?.CancelTrajectory(duel.InterceptorUid);
+
                 if (interceptor?.Entity != null)
                 {
-                    DunkTrajectorySystem.Instance?.CancelTrajectory(duel.InterceptorUid);
-                    // Knockback interceptor downwards and away
-                    interceptor.Entity.Pos.Motion.Set((rand.NextDouble() - 0.5) * 0.8, -0.65, (rand.NextDouble() - 0.5) * 0.8);
+                    // Thrown back in the opposite angle of their incoming flight (recoil towards their origin)
+                    interceptor.Entity.Pos.Motion.Set(interceptorOriginDir.X * 0.85, 0.40, interceptorOriginDir.Z * 0.85);
                 }
 
                 // Resume dunker trajectory to finish the slam
@@ -217,7 +261,7 @@ namespace BasketballAllstars.Systems
             }
             else
             {
-                // Interceptor won the clash! Steal ball and spark explode dunker upward
+                // Interceptor won the clash! Steal ball and throw dunker in the direction interceptor came from
                 BasketballAudioParticles.PlayClashSound(api.World, duel.ClashPos);
                 BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
                 BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos.AddCopy(0, 0.5, 0));
@@ -232,10 +276,10 @@ namespace BasketballAllstars.Systems
                 DunkTrajectorySystem.Instance?.CancelTrajectory(duel.DunkerUid);
                 DunkTrajectorySystem.Instance?.CancelTrajectory(duel.InterceptorUid);
 
-                // Defending player lands cleanly; dunking player is spark exploded and thrown upward!
+                // Dunking player is spark exploded and thrown in the direction the intercepting player was coming from
                 if (dunker?.Entity != null)
                 {
-                    dunker.Entity.Pos.Motion.Set((rand.NextDouble() - 0.5) * 0.3, 0.85, (rand.NextDouble() - 0.5) * 0.3);
+                    dunker.Entity.Pos.Motion.Set(interceptorOriginDir.X * 0.95, 0.75, interceptorOriginDir.Z * 0.95);
                 }
                 if (interceptor?.Entity != null)
                 {
@@ -251,6 +295,9 @@ namespace BasketballAllstars.Systems
                     ClashPos = duel.ClashPos
                 });
             }
+
+            // Apply 1 second of lingering steal immunity between the two clashing players
+            BasketballGameState.ServerInstance?.SetPlayerImmunity(duel.DunkerUid, duel.InterceptorUid, 1000.0);
         }
 
         // ========================================================================
