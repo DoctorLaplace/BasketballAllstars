@@ -201,6 +201,7 @@ namespace BasketballAllstars.Systems
 
             activeTrajectories[player.PlayerUID] = traj;
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+            player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 2000);
 
             // Sync trajectory to all clients
             var serverChannel = (api as ICoreServerAPI)?.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
@@ -338,6 +339,7 @@ namespace BasketballAllstars.Systems
                 Vec3d releaseMotion = new Vec3d(vx / 30.0, Math.Max(vy / 30.0, 0.05), vz / 30.0);
                 entityPlayer.Pos.Motion.Set(releaseMotion.X, releaseMotion.Y, releaseMotion.Z);
                 entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
+                entityPlayer.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 2000);
 
                 activeTrajectories.Remove(playerUid);
                 clientTrajectories.Remove(playerUid);
@@ -473,6 +475,7 @@ namespace BasketballAllstars.Systems
                     if (player?.Entity != null)
                     {
                         player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                        player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 2000);
                     }
                 }
             }

@@ -401,6 +401,12 @@ namespace BasketballAllstars.Entities
 
             if (byEntity is EntityPlayer entityPlayer && entityPlayer.Player is IServerPlayer sPlayer)
             {
+                long noPickupUntil = entityPlayer.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+                if (noPickupUntil > World.ElapsedMilliseconds) return;
+
+                var dunkSys = DunkTrajectorySystem.Get(World.Side);
+                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _)) return;
+
                 // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
                 byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
                 TryCollect(sPlayer);
@@ -432,7 +438,17 @@ namespace BasketballAllstars.Entities
 
             // 2. Player receiving catch (in-flight passes, rebounds, and ground pickups)
             // Calibrated strictly to player height + 10% (feet up to ~2.04m)
-            EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ.AddCopy(0, -1.02, 0), 1.15f, 1.10f, e => e is EntityPlayer ep && ep.Alive) as EntityPlayer;
+            EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ.AddCopy(0, -1.02, 0), 1.15f, 1.10f, e => {
+                if (e is not EntityPlayer ep || !ep.Alive) return false;
+                long noPickupUntil = ep.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+                if (noPickupUntil > World.ElapsedMilliseconds) return false;
+
+                var dunkSys = DunkTrajectorySystem.Get(World.Side);
+                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(ep.PlayerUID, out _)) return false;
+
+                return true;
+            }) as EntityPlayer;
+
             if (nearestPlayer?.Player is IServerPlayer sPlayer)
             {
                 double playerHeight = nearestPlayer.CollisionBox?.Y2 ?? 1.85;
@@ -461,6 +477,15 @@ namespace BasketballAllstars.Entities
 
         private void TryCollect(IServerPlayer player)
         {
+            if (player?.Entity != null)
+            {
+                long noPickupUntil = player.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+                if (noPickupUntil > World.ElapsedMilliseconds) return;
+
+                var dunkSys = DunkTrajectorySystem.Get(World.Side);
+                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(player.PlayerUID, out _)) return;
+            }
+
             Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
             if (ballItem != null)
             {
