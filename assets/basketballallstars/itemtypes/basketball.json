@@ -3,6 +3,8 @@
   "class": "ItemBasketball",
   "name": "Basketball",
   "maxStackSize": 1,
+  "heldTpIdleAnimation": "holdbothhands",
+  "heldTpUseAnimation": "aim",
   "shape": { "base": "basketballallstars:item/basketball" },
   "textures": {
     "leather": { "base": "game:block/clay/hardened/orange" },

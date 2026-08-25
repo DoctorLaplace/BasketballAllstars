@@ -230,7 +230,7 @@ namespace BasketballAllstars.Entities
                 {
                     World.BlockAccessor.SetBlock(bballBlock.BlockId, blockPos);
                     World.BlockAccessor.TriggerNeighbourBlockUpdate(blockPos);
-                    Die();
+                    Die(EnumDespawnReason.Removed);
                     return;
                 }
             }
@@ -241,7 +241,7 @@ namespace BasketballAllstars.Entities
             {
                 World.SpawnItemEntity(new ItemStack(ballItem, 1), Pos.XYZ);
             }
-            Die();
+            Die(EnumDespawnReason.Removed);
         }
 
         public override void OnCollided()
@@ -271,15 +271,15 @@ namespace BasketballAllstars.Entities
                 {
                     if (motionBeforeCollide.Y < -0.02)
                     {
-                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
+                        pos.Motion.Y = -motionBeforeCollide.Y * 0.86;
                     }
                     else if (motionBeforeCollide.Y > 0.02)
                     {
                         // Ceiling collision
-                        pos.Motion.Y = -motionBeforeCollide.Y * 0.72;
+                        pos.Motion.Y = -motionBeforeCollide.Y * 0.86;
                     }
-                    pos.Motion.X *= 0.88;
-                    pos.Motion.Z *= 0.88;
+                    pos.Motion.X *= 0.94;
+                    pos.Motion.Z *= 0.94;
                 }
 
                 if (CollidedHorizontally)
@@ -300,20 +300,20 @@ namespace BasketballAllstars.Entities
                     if (hitX && !hitZ)
                     {
                         // X-axis wall: reflect X, preserve tangential Z
-                        pos.Motion.X = -motionBeforeCollide.X * 0.68;
-                        pos.Motion.Z = motionBeforeCollide.Z * 0.88;
+                        pos.Motion.X = -motionBeforeCollide.X * 0.82;
+                        pos.Motion.Z = motionBeforeCollide.Z * 0.94;
                     }
                     else if (hitZ && !hitX)
                     {
                         // Z-axis wall: reflect Z, preserve tangential X
-                        pos.Motion.Z = -motionBeforeCollide.Z * 0.68;
-                        pos.Motion.X = motionBeforeCollide.X * 0.88;
+                        pos.Motion.Z = -motionBeforeCollide.Z * 0.82;
+                        pos.Motion.X = motionBeforeCollide.X * 0.94;
                     }
                     else
                     {
                         // Corner hit: rebound both axes
-                        pos.Motion.X = -motionBeforeCollide.X * 0.68;
-                        pos.Motion.Z = -motionBeforeCollide.Z * 0.68;
+                        pos.Motion.X = -motionBeforeCollide.X * 0.82;
+                        pos.Motion.Z = -motionBeforeCollide.Z * 0.82;
                     }
                 }
 
@@ -425,7 +425,7 @@ namespace BasketballAllstars.Entities
                 if (relDummyY >= -0.10 && relDummyY <= maxDummyHeight)
                 {
                     targetDummy.CatchBall();
-                    Die();
+                    Die(EnumDespawnReason.PickedUp);
                     return;
                 }
             }
@@ -468,7 +468,7 @@ namespace BasketballAllstars.Entities
                 if (player.InventoryManager.TryGiveItemstack(stack, true))
                 {
                     BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
-                    Die();
+                    Die(EnumDespawnReason.PickedUp);
                 }
             }
         }

@@ -58,6 +58,7 @@ namespace BasketballAllstars.Items
 
             // Normal Right-click: start throw charging
             byEntity.Attributes.SetInt("aiming", 1);
+            byEntity.AnimManager?.StartAnimation("aim");
             handHandling = EnumHandHandling.PreventDefault;
         }
 
@@ -71,6 +72,7 @@ namespace BasketballAllstars.Items
         {
             int wasAiming = byEntity.Attributes.GetInt("aiming", 0);
             byEntity.Attributes.SetInt("aiming", 0);
+            byEntity.AnimManager?.StopAnimation("aim");
 
             if (wasAiming == 0) return;
             if (slot == null || slot.Empty || slot.Itemstack == null || slot.StackSize <= 0) return;
@@ -118,7 +120,29 @@ namespace BasketballAllstars.Items
         public override bool OnHeldInteractCancel(float secondsUsed, ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, EnumItemUseCancelReason cancelReason)
         {
             byEntity.Attributes.SetInt("aiming", 0);
+            byEntity.AnimManager?.StopAnimation("aim");
             return true;
+        }
+
+        public override string GetHeldTpIdleAnimation(ItemSlot activeHotbarSlot, Entity forEntity, EnumHand hand)
+        {
+            if (forEntity is EntityAgent agent)
+            {
+                bool isAiming = agent.Attributes.GetInt("aiming", 0) == 1;
+                bool inAir = !agent.OnGround;
+                bool inTrajectory = DunkTrajectorySystem.ClientInstance != null && DunkTrajectorySystem.ClientInstance.IsPlayerInTrajectory((agent as EntityPlayer)?.PlayerUID, out _);
+
+                if (isAiming || inAir || inTrajectory)
+                {
+                    return "holdbothhands";
+                }
+            }
+            return "holdbothhands";
+        }
+
+        public override string GetHeldTpUseAnimation(ItemSlot activeHotbarSlot, Entity byEntity)
+        {
+            return "aim";
         }
 
         public override void OnBeforeRender(ICoreClientAPI capi, ItemStack itemstack, EnumItemRenderTarget target, ref ItemRenderInfo renderinfo)

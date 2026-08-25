@@ -201,6 +201,8 @@ namespace BasketballAllstars.Systems
 
             activeTrajectories[player.PlayerUID] = traj;
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+            player.Entity.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "jump", Code = "jump", Weight = 1, EaseInSpeed = 10, EaseOutSpeed = 10 }.Init());
+            player.Entity.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "holdbothhands", Code = "holdbothhands", Weight = 10, EaseInSpeed = 100, EaseOutSpeed = 100 }.Init());
 
             // Sync trajectory to all clients
             var serverChannel = (api as ICoreServerAPI)?.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
@@ -253,6 +255,8 @@ namespace BasketballAllstars.Systems
 
             activeTrajectories[player.PlayerUID] = traj;
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+            player.Entity.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "jump", Code = "jump", Weight = 1, EaseInSpeed = 10, EaseOutSpeed = 10 }.Init());
+            player.Entity.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "holdbothhands", Code = "holdbothhands", Weight = 10, EaseInSpeed = 100, EaseOutSpeed = 100 }.Init());
 
             var serverChannel = (api as ICoreServerAPI)?.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
             serverChannel?.BroadcastPacket(new TrajectorySyncMessage
@@ -338,6 +342,10 @@ namespace BasketballAllstars.Systems
                 Vec3d releaseMotion = new Vec3d(vx / 30.0, Math.Max(vy / 30.0, 0.05), vz / 30.0);
                 entityPlayer.Pos.Motion.Set(releaseMotion.X, releaseMotion.Y, releaseMotion.Z);
                 entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
+                entityPlayer.AnimManager?.StopAnimation("holdbothhands");
+                entityPlayer.AnimManager?.StopAnimation("aim");
+                entityPlayer.AnimManager?.StopAnimation("jump");
+                entityPlayer.AnimManager?.StopAnimation("glidingsolo");
 
                 activeTrajectories.Remove(playerUid);
                 clientTrajectories.Remove(playerUid);
@@ -364,6 +372,8 @@ namespace BasketballAllstars.Systems
                 player.Entity.Pos.Roll = 0f;
                 player.Entity.Controls.Gliding = false;
                 player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                player.Entity.AnimManager?.StopAnimation("holdbothhands");
+                player.Entity.AnimManager?.StopAnimation("aim");
                 player.Entity.AnimManager?.StopAnimation("jump");
                 player.Entity.AnimManager?.StopAnimation("glidingsolo");
                 if (msg.ReleaseMotion != null)
@@ -475,6 +485,10 @@ namespace BasketballAllstars.Systems
                     if (player?.Entity != null)
                     {
                         player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                        player.Entity.AnimManager?.StopAnimation("holdbothhands");
+                        player.Entity.AnimManager?.StopAnimation("aim");
+                        player.Entity.AnimManager?.StopAnimation("jump");
+                        player.Entity.AnimManager?.StopAnimation("glidingsolo");
                     }
                 }
             }
@@ -513,6 +527,12 @@ namespace BasketballAllstars.Systems
                 FlightYaw = flightYaw
             };
             clientTrajectories[msg.PlayerUid] = traj;
+
+            if (api?.World?.PlayerByUid(msg.PlayerUid)?.Entity is EntityPlayer targetSeraph)
+            {
+                targetSeraph.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "jump", Code = "jump", Weight = 1, EaseInSpeed = 10, EaseOutSpeed = 10 }.Init());
+                targetSeraph.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "holdbothhands", Code = "holdbothhands", Weight = 10, EaseInSpeed = 100, EaseOutSpeed = 100 }.Init());
+            }
         }
 
         private void OnClientTrajectoryTick(float dt)
@@ -567,6 +587,8 @@ namespace BasketballAllstars.Systems
                     player.Entity.Pos.Roll = 0f;
                     player.Entity.Controls.Gliding = false;
                     player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
+                    player.Entity.AnimManager?.StopAnimation("holdbothhands");
+                    player.Entity.AnimManager?.StopAnimation("aim");
                     player.Entity.AnimManager?.StopAnimation("jump");
                     player.Entity.AnimManager?.StopAnimation("glidingsolo");
                 }
@@ -731,6 +753,9 @@ namespace BasketballAllstars.Systems
                         Revolutions = revolutions,
                         FlightYaw = flightYaw
                     };
+
+                    player.Entity.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "jump", Code = "jump", Weight = 1, EaseInSpeed = 10, EaseOutSpeed = 10 }.Init());
+                    player.Entity.AnimManager?.StartAnimation(new AnimationMetaData { Animation = "holdbothhands", Code = "holdbothhands", Weight = 10, EaseInSpeed = 100, EaseOutSpeed = 100 }.Init());
                 }
             }
             else if (!string.IsNullOrEmpty(ClientLockedDunkerUid))
