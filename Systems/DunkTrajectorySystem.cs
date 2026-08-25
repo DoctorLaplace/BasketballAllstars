@@ -29,6 +29,7 @@ namespace BasketballAllstars.Systems
         public double StartLocalMs { get; set; } = 0;
         public bool IsDunk { get; set; } = false;
         public BlockPos? TargetHoopPos { get; set; } = null;
+        public string TargetPlayerUid { get; set; } = "";
         public bool IsSuspended { get; set; } = false;
         public Vec3d SuspendedPos { get; set; } = new Vec3d();
         public double SuspendStartMs { get; set; } = 0;
@@ -246,19 +247,17 @@ namespace BasketballAllstars.Systems
         public void StartInterceptTrajectory(IServerPlayer player, string targetDunkerUid, float charge)
         {
             if (player.Entity == null) return;
-            if (!activeTrajectories.TryGetValue(targetDunkerUid, out var dunkerTraj)) return;
-
             IServerPlayer? dunkerPlayer = (api as ICoreServerAPI)?.World.PlayerByUid(targetDunkerUid) as IServerPlayer;
             if (dunkerPlayer?.Entity == null) return;
 
             Vec3d startPos = player.Entity.Pos.XYZ.Clone();
-            Vec3d dunkerFuturePos = dunkerTraj.TargetPos;
-            double distance = startPos.DistanceTo(dunkerFuturePos);
-            float duration = Math.Max(dunkerTraj.DurationSeconds - (float)((api.World.ElapsedMilliseconds - dunkerTraj.StartLocalMs) / 1000.0), 0.5f);
-            float arcHeight = (float)Math.Clamp(distance * 0.35 + 2.0, 2.5, 7.0);
+            Vec3d dunkerPos = dunkerPlayer.Entity.Pos.XYZ.Clone();
+            double distance = startPos.DistanceTo(dunkerPos);
+            float duration = (float)Math.Clamp(distance / 12.0, 0.45, 1.25);
+            float arcHeight = (float)Math.Clamp(distance * 0.30 + 1.5, 2.0, 5.5);
 
-            double dx = dunkerFuturePos.X - startPos.X;
-            double dz = dunkerFuturePos.Z - startPos.Z;
+            double dx = dunkerPos.X - startPos.X;
+            double dz = dunkerPos.Z - startPos.Z;
             float flightYaw = (float)Math.Atan2(dx, dz);
 
             int dunkStyle = (int)EnumDunkStyle.FrontFlip;
@@ -267,8 +266,9 @@ namespace BasketballAllstars.Systems
             var traj = new ActiveTrajectory
             {
                 PlayerUid = player.PlayerUID,
+                TargetPlayerUid = targetDunkerUid,
                 StartPos = startPos,
-                TargetPos = dunkerFuturePos,
+                TargetPos = dunkerPos,
                 ArcHeight = arcHeight,
                 DurationSeconds = duration,
                 StartLocalMs = api.World.ElapsedMilliseconds,
@@ -289,8 +289,9 @@ namespace BasketballAllstars.Systems
             serverChannel?.BroadcastPacket(new TrajectorySyncMessage
             {
                 PlayerUid = player.PlayerUID,
+                TargetPlayerUid = targetDunkerUid,
                 StartPos = startPos,
-                TargetPos = dunkerFuturePos,
+                TargetPos = dunkerPos,
                 DurationSeconds = duration,
                 ArcHeight = arcHeight,
                 IsDunk = false,
@@ -468,12 +469,28 @@ namespace BasketballAllstars.Systems
                     continue;
                 }
 
+                Vec3d targetPos = traj.TargetPos;
+                if (!string.IsNullOrEmpty(traj.TargetPlayerUid))
+                {
+                    var targetPlayer = sapi.World.PlayerByUid(traj.TargetPlayerUid);
+                    if (targetPlayer?.Entity != null)
+                    {
+                        targetPos = targetPlayer.Entity.Pos.XYZ;
+                        double diffX = targetPos.X - player.Entity.Pos.X;
+                        double diffZ = targetPos.Z - player.Entity.Pos.Z;
+                        if (diffX * diffX + diffZ * diffZ > 0.01)
+                        {
+                            traj.FlightYaw = (float)Math.Atan2(diffX, diffZ);
+                        }
+                    }
+                }
+
                 double elapsedMs = sapi.World.ElapsedMilliseconds - traj.StartLocalMs;
                 float t = Math.Clamp((float)(elapsedMs / (Math.Max(traj.DurationSeconds, 0.1f) * 1000.0)), 0f, 1f);
 
-                double currentX = traj.StartPos.X + (traj.TargetPos.X - traj.StartPos.X) * t;
-                double currentZ = traj.StartPos.Z + (traj.TargetPos.Z - traj.StartPos.Z) * t;
-                double baseY = traj.StartPos.Y + (traj.TargetPos.Y - traj.StartPos.Y) * t;
+                double currentX = traj.StartPos.X + (targetPos.X - traj.StartPos.X) * t;
+                double currentZ = traj.StartPos.Z + (targetPos.Z - traj.StartPos.Z) * t;
+                double baseY = traj.StartPos.Y + (targetPos.Y - traj.StartPos.Y) * t;
                 double arcOffset = traj.ArcHeight * 4.0 * t * (1.0 - t);
                 double currentY = baseY + arcOffset;
 
@@ -490,10 +507,7 @@ namespace BasketballAllstars.Systems
                 player.Entity.Pos.Motion.Set(0, 0, 0);
 
                 // Check collision with interceptors via AirClashSystem
-                if (traj.IsDunk)
-                {
-                    AirClashSystem.Instance?.CheckAirClashes(player, currentX, currentY, currentZ);
-                }
+                AirClashSystem.Instance?.CheckAirClashes(player, currentX, currentY, currentZ);
 
                 if (t >= 1.0f)
                 {
@@ -565,8 +579,15 @@ namespace BasketballAllstars.Systems
             // If the local player already predicted this trajectory, only sync the authoritative style & revolutions
             if (clientTrajectories.TryGetValue(msg.PlayerUid, out var existingTraj))
             {
+                existingTraj.StartPos = msg.StartPos.Clone();
+                existingTraj.TargetPos = msg.TargetPos.Clone();
+                existingTraj.TargetPlayerUid = msg.TargetPlayerUid;
+                existingTraj.ArcHeight = msg.ArcHeight;
+                existingTraj.DurationSeconds = msg.DurationSeconds;
+                existingTraj.StartLocalMs = api.World.ElapsedMilliseconds;
                 existingTraj.DunkStyle = msg.DunkStyle;
                 existingTraj.Revolutions = msg.Revolutions;
+                existingTraj.FlightYaw = existingTraj.FlightYaw;
                 existingTraj.IsDunk = msg.IsDunk;
                 return;
             }
@@ -578,6 +599,7 @@ namespace BasketballAllstars.Systems
             var traj = new ActiveTrajectory
             {
                 PlayerUid = msg.PlayerUid,
+                TargetPlayerUid = msg.TargetPlayerUid,
                 StartPos = msg.StartPos.Clone(),
                 TargetPos = msg.TargetPos.Clone(),
                 ArcHeight = msg.ArcHeight,
@@ -619,12 +641,28 @@ namespace BasketballAllstars.Systems
                     continue;
                 }
 
+                Vec3d targetPos = traj.TargetPos;
+                if (!string.IsNullOrEmpty(traj.TargetPlayerUid))
+                {
+                    var targetPlayer = capi.World.PlayerByUid(traj.TargetPlayerUid);
+                    if (targetPlayer?.Entity != null)
+                    {
+                        targetPos = targetPlayer.Entity.Pos.XYZ;
+                        double diffX = targetPos.X - player.Entity.Pos.X;
+                        double diffZ = targetPos.Z - player.Entity.Pos.Z;
+                        if (diffX * diffX + diffZ * diffZ > 0.01)
+                        {
+                            traj.FlightYaw = (float)Math.Atan2(diffX, diffZ);
+                        }
+                    }
+                }
+
                 double elapsedMs = capi.World.ElapsedMilliseconds - traj.StartLocalMs;
                 float t = Math.Clamp((float)(elapsedMs / (Math.Max(traj.DurationSeconds, 0.1f) * 1000.0)), 0f, 1f);
 
-                double curX = traj.StartPos.X + (traj.TargetPos.X - traj.StartPos.X) * t;
-                double curZ = traj.StartPos.Z + (traj.TargetPos.Z - traj.StartPos.Z) * t;
-                double baseY = traj.StartPos.Y + (traj.TargetPos.Y - traj.StartPos.Y) * t;
+                double curX = traj.StartPos.X + (targetPos.X - traj.StartPos.X) * t;
+                double curZ = traj.StartPos.Z + (targetPos.Z - traj.StartPos.Z) * t;
+                double baseY = traj.StartPos.Y + (targetPos.Y - traj.StartPos.Y) * t;
                 double arcY = traj.ArcHeight * 4.0 * t * (1.0 - t);
                 double curY = baseY + arcY;
 
@@ -836,21 +874,18 @@ namespace BasketballAllstars.Systems
                 {
                     Vec3d startPos = player.Entity.Pos.XYZ.Clone();
                     Vec3d targetPos = targetDunker.Entity.Pos.XYZ.Clone();
-                    if (clientTrajectories.TryGetValue(ClientLockedDunkerUid, out var targetTraj))
-                    {
-                        targetPos = targetTraj.TargetPos.Clone();
-                    }
 
                     double dx = targetPos.X - startPos.X;
                     double dz = targetPos.Z - startPos.Z;
                     float flightYaw = (float)Math.Atan2(dx, dz);
                     double distance = startPos.DistanceTo(targetPos);
-                    float duration = (float)Math.Clamp(distance / 12.0, 0.4, 1.2);
-                    float arcHeight = (float)Math.Clamp(distance * 0.30 + 1.5, 2.0, 6.0);
+                    float duration = (float)Math.Clamp(distance / 12.0, 0.45, 1.25);
+                    float arcHeight = (float)Math.Clamp(distance * 0.30 + 1.5, 2.0, 5.5);
 
                     clientTrajectories[player.PlayerUID] = new ActiveTrajectory
                     {
                         PlayerUid = player.PlayerUID,
+                        TargetPlayerUid = ClientLockedDunkerUid,
                         StartPos = startPos,
                         TargetPos = targetPos,
                         ArcHeight = arcHeight,

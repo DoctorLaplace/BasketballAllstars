@@ -55,7 +55,7 @@ namespace BasketballAllstars.Gui
             {
                 originalMouseYaw = capi.Input.MouseYaw;
                 originalMousePitch = capi.Input.MousePitch;
-                capi.Input.MousePitch = 0.55f; // Angled down from above
+                capi.Input.MousePitch = -0.55f; // Angled down from above (negative pitch looks down)
                 cameraOverridden = true;
             }
 
@@ -239,7 +239,7 @@ namespace BasketballAllstars.Gui
             if (cameraOverridden && !isFinished)
             {
                 capi.Input.MouseYaw += deltaTime * 1.5f;
-                capi.Input.MousePitch = 0.55f;
+                capi.Input.MousePitch = -0.55f;
             }
 
             // Smooth sliding animation of the arrow strip towards current arrow

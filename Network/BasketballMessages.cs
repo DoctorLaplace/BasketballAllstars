@@ -77,6 +77,9 @@ namespace BasketballAllstars.Network
 
         [ProtoMember(9)]
         public int Revolutions { get; set; } = 1;
+
+        [ProtoMember(10)]
+        public string TargetPlayerUid { get; set; } = "";
     }
 
     [ProtoContract]

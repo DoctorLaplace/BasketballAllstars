@@ -52,23 +52,37 @@ namespace BasketballAllstars.Systems
         // Server Clash Detection & State Machine
         // ========================================================================
 
-        public void CheckAirClashes(IServerPlayer dunker, double x, double y, double z)
+        public void CheckAirClashes(IServerPlayer triggeringPlayer, double x, double y, double z)
         {
             if (api is not ICoreServerAPI sapi) return;
 
-            var dunkerPos = new Vec3d(x, y, z);
+            var myTraj = DunkTrajectorySystem.Instance?.GetActiveTrajectory(triggeringPlayer.PlayerUID);
+            if (myTraj == null || myTraj.IsSuspended) return;
+
+            var playerPos = new Vec3d(x, y, z);
             foreach (IServerPlayer otherPlayer in sapi.World.AllOnlinePlayers)
             {
-                if (otherPlayer.PlayerUID == dunker.PlayerUID || otherPlayer.Entity == null) continue;
+                if (otherPlayer.PlayerUID == triggeringPlayer.PlayerUID || otherPlayer.Entity == null) continue;
 
                 var otherTraj = DunkTrajectorySystem.Instance?.GetActiveTrajectory(otherPlayer.PlayerUID);
-                if (otherTraj != null && !otherTraj.IsDunk && !otherTraj.IsSuspended)
+                if (otherTraj == null || otherTraj.IsSuspended) continue;
+
+                // One must be the dunker, the other the interceptor
+                if (myTraj.IsDunk && !otherTraj.IsDunk)
                 {
-                    double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(dunkerPos);
-                    if (dist < 2.2)
+                    double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(playerPos);
+                    if (dist < 2.5)
                     {
-                        // Trigger Air Clash Duel!
-                        StartAirClash(dunker, otherPlayer, dunkerPos);
+                        StartAirClash(triggeringPlayer, otherPlayer, playerPos);
+                        break;
+                    }
+                }
+                else if (!myTraj.IsDunk && otherTraj.IsDunk)
+                {
+                    double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(playerPos);
+                    if (dist < 2.5)
+                    {
+                        StartAirClash(otherPlayer, triggeringPlayer, playerPos);
                         break;
                     }
                 }
