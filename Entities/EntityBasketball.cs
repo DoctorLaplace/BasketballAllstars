@@ -84,11 +84,39 @@ namespace BasketballAllstars.Entities
             WatchedAttributes.MarkAllDirty();
         }
 
+        public override bool CanCollect(Entity byEntity)
+        {
+            if (!Alive || !Collectible || InNetTransit) return false;
+            if (byEntity is not EntityPlayer entityPlayer) return false;
+
+            long noPickupUntil = entityPlayer.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+            if (noPickupUntil > World.ElapsedMilliseconds) return false;
+
+            var dunkSys = DunkTrajectorySystem.Get(World.Side);
+            if (dunkSys != null && dunkSys.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _)) return false;
+
+            long timeSinceLaunch = msLaunch > 0 ? (World.ElapsedMilliseconds - msLaunch) : 1000;
+            bool isThrower = FiredBy != null && FiredBy.EntityId == entityPlayer.EntityId;
+
+            if (isThrower && timeSinceLaunch < 150 && !OnGround && !beforeCollided) return false;
+
+            return true;
+        }
+
+        public override ItemStack OnCollected(Entity byEntity)
+        {
+            if (!Collectible) return null!;
+            BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
+            ItemStack stack = ProjectileStack?.Clone() ?? new ItemStack(World.GetItem(new AssetLocation("basketballallstars:basketball")), 1);
+            stack.ResolveBlockOrItem(World);
+            return stack;
+        }
+
         public EntityBasketball()
         {
             CollisionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
-            SelectionBox = new Cuboidf(-0.35f, -0.10f, -0.35f, 0.35f, 0.55f, 0.35f);
-            OriginSelectionBox = new Cuboidf(-0.35f, -0.10f, -0.35f, 0.35f, 0.55f, 0.35f);
+            SelectionBox = new Cuboidf(-0.35f, -0.05f, -0.35f, 0.35f, 0.55f, 0.35f);
+            OriginSelectionBox = new Cuboidf(-0.35f, -0.05f, -0.35f, 0.35f, 0.55f, 0.35f);
         }
 
         public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
@@ -424,16 +452,16 @@ namespace BasketballAllstars.Entities
             if (!Collectible || InNetTransit) return;
 
             long timeSinceLaunch = msLaunch > 0 ? (World.ElapsedMilliseconds - msLaunch) : 1000;
-            if (timeSinceLaunch < 80) return;
+            if (timeSinceLaunch < 50) return;
 
             // 1. Practice Dummy catch: can receive passes/shots within 1.5m radius
-            Entity? nearestDummy = World.GetNearestEntity(Pos.XYZ, 1.5f, 2.0f, e => e is EntityBasketballDummy dummy && dummy.Alive && !dummy.HasBall);
+            Entity? nearestDummy = World.GetNearestEntity(Pos.XYZ, 1.5f, 2.2f, e => e is EntityBasketballDummy dummy && dummy.Alive && !dummy.HasBall);
             if (nearestDummy is EntityBasketballDummy targetDummy)
             {
                 double dummyHeight = targetDummy.CollisionBox?.Y2 ?? 1.85;
                 double relDummyY = Pos.Y - targetDummy.Pos.Y;
 
-                if (relDummyY >= -0.40 && relDummyY <= dummyHeight + 0.40)
+                if (relDummyY >= -0.30 && relDummyY <= dummyHeight + 0.40)
                 {
                     targetDummy.CatchBall();
                     Die(EnumDespawnReason.PickedUp);
@@ -442,29 +470,27 @@ namespace BasketballAllstars.Entities
             }
 
             // 2. Player receiving catch (in-flight passes, rebounds, and ground pickups)
-            // Searches generously around the basketball (1.6m horizontal, 2.2m vertical)
-            EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ, 1.6f, 2.2f, e => {
-                if (e is not EntityPlayer ep || !ep.Alive) return false;
-                long noPickupUntil = ep.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return false;
-
-                var dunkSys = DunkTrajectorySystem.Get(World.Side);
-                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(ep.PlayerUID, out _)) return false;
-
-                return true;
-            }) as EntityPlayer;
-
-            if (nearestPlayer != null)
+            if (World is IServerWorldAccessor serverWorld)
             {
-                IServerPlayer? sPlayer = nearestPlayer.Player as IServerPlayer ?? (World as IServerWorldAccessor)?.PlayerByUid(nearestPlayer.PlayerUID) as IServerPlayer;
-                if (sPlayer != null)
+                Vec3d ballPos = Pos.XYZ;
+                foreach (IServerPlayer sPlayer in serverWorld.AllOnlinePlayers)
                 {
-                    double playerHeight = nearestPlayer.CollisionBox?.Y2 ?? 1.85;
-                    double relY = Pos.Y - nearestPlayer.Pos.Y;
+                    if (sPlayer.ConnectionState != EnumClientState.Playing || sPlayer.Entity == null || !sPlayer.Entity.Alive) continue;
 
-                    if (relY >= -0.60 && relY <= playerHeight + 0.60)
+                    long noPickupUntil = sPlayer.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+                    if (noPickupUntil > World.ElapsedMilliseconds) continue;
+
+                    var dunkSys = DunkTrajectorySystem.Get(World.Side);
+                    if (dunkSys != null && dunkSys.IsPlayerInTrajectory(sPlayer.PlayerUID, out _)) continue;
+
+                    Vec3d playerPos = sPlayer.Entity.Pos.XYZ;
+                    double horizDistSq = Math.Pow(ballPos.X - playerPos.X, 2) + Math.Pow(ballPos.Z - playerPos.Z, 2);
+                    double relY = ballPos.Y - playerPos.Y;
+
+                    // 1.8m horizontal radius, from -0.50m (feet) to 2.50m (head)
+                    if (horizDistSq <= 3.24 && relY >= -0.50 && relY <= 2.50)
                     {
-                        bool isThrower = FiredBy != null && FiredBy.EntityId == nearestPlayer.EntityId;
+                        bool isThrower = FiredBy != null && FiredBy.EntityId == sPlayer.Entity.EntityId;
 
                         // If thrown by someone else: immediate catch
                         if (!isThrower)
@@ -472,8 +498,8 @@ namespace BasketballAllstars.Entities
                             TryCollect(sPlayer);
                             return;
                         }
-                        // If thrown by self: catch on rebound, slow speed, on ground, or after 250ms in flight
-                        else if (isThrower && (timeSinceLaunch > 250 || Pos.Motion.Length() < 0.35 || beforeCollided || OnGround))
+                        // If thrown by self: catch on rebound, ground landing, slow speed, or after 150ms in flight
+                        else if (isThrower && (timeSinceLaunch > 150 || OnGround || beforeCollided || Pos.Motion.Length() < 0.35))
                         {
                             TryCollect(sPlayer);
                             return;
@@ -485,24 +511,31 @@ namespace BasketballAllstars.Entities
 
         private void TryCollect(IServerPlayer player)
         {
-            if (player?.Entity != null)
-            {
-                long noPickupUntil = player.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return;
+            if (player?.Entity == null || !player.Entity.Alive) return;
 
-                var dunkSys = DunkTrajectorySystem.Get(World.Side);
-                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(player.PlayerUID, out _)) return;
+            long noPickupUntil = player.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+            if (noPickupUntil > World.ElapsedMilliseconds) return;
+
+            var dunkSys = DunkTrajectorySystem.Get(World.Side);
+            if (dunkSys != null && dunkSys.IsPlayerInTrajectory(player.PlayerUID, out _)) return;
+
+            ItemStack stack = ProjectileStack?.Clone() ?? new ItemStack(World.GetItem(new AssetLocation("basketballallstars:basketball")), 1);
+            stack.ResolveBlockOrItem(World);
+
+            bool collected = player.InventoryManager?.TryGiveItemstack(stack, true) == true;
+            if (!collected && player.Entity != null)
+            {
+                collected = player.Entity.TryGiveItemStack(stack);
             }
 
-            Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
-            if (ballItem != null)
+            if (collected)
             {
-                ItemStack stack = ProjectileStack ?? new ItemStack(ballItem, 1);
-                if (!player.InventoryManager.TryGiveItemstack(stack, true))
-                {
-                    World.SpawnItemEntity(stack, Pos.XYZ);
-                }
                 BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
+                Die(EnumDespawnReason.PickedUp);
+            }
+            else
+            {
+                World.SpawnItemEntity(stack, Pos.XYZ);
                 Die(EnumDespawnReason.PickedUp);
             }
         }
