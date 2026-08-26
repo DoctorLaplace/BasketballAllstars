@@ -84,10 +84,38 @@ namespace BasketballAllstars.Entities
             WatchedAttributes.MarkAllDirty();
         }
 
+        public override bool CanCollect(Entity byEntity)
+        {
+            if (!Alive || !Collectible || InNetTransit) return false;
+            if (byEntity is not EntityPlayer entityPlayer || entityPlayer.Player == null) return false;
+
+            long noPickupUntil = entityPlayer.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+            if (noPickupUntil > World.ElapsedMilliseconds) return false;
+
+            var dunkSys = DunkTrajectorySystem.Get(World.Side);
+            if (dunkSys != null && dunkSys.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _)) return false;
+
+            long timeSinceLaunch = World.ElapsedMilliseconds - msLaunch;
+            bool isThrower = FiredBy != null && FiredBy.EntityId == entityPlayer.EntityId;
+
+            if (isThrower && timeSinceLaunch < 150 && !OnGround && !beforeCollided) return false;
+
+            return true;
+        }
+
+        public override ItemStack OnCollected(Entity byEntity)
+        {
+            if (!Collectible) return null!;
+            BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
+            ItemStack stack = ProjectileStack?.Clone() ?? new ItemStack(World.GetItem(new AssetLocation("basketballallstars:basketball")), 1);
+            stack.ResolveBlockOrItem(World);
+            return stack;
+        }
+
         public EntityBasketball()
         {
             CollisionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
-            SelectionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
+            SelectionBox = new Cuboidf(-0.35f, -0.05f, -0.35f, 0.35f, 0.55f, 0.35f);
         }
 
         public override void Initialize(EntityProperties properties, ICoreAPI api, long InChunkIndex3d)
@@ -98,7 +126,7 @@ namespace BasketballAllstars.Entities
             {
                 CollisionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
             }
-            SelectionBox = new Cuboidf(-0.15f, 0f, -0.15f, 0.15f, 0.30f, 0.15f);
+            SelectionBox = new Cuboidf(-0.35f, -0.05f, -0.35f, 0.35f, 0.55f, 0.35f);
 
             msLaunch = World.ElapsedMilliseconds;
 
@@ -455,8 +483,8 @@ namespace BasketballAllstars.Entities
                     double horizDistSq = Math.Pow(ballPos.X - playerPos.X, 2) + Math.Pow(ballPos.Z - playerPos.Z, 2);
                     double relY = ballPos.Y - playerPos.Y;
 
-                    // 1.6m horizontal radius, from -0.35m (feet) to 2.30m (head)
-                    if (horizDistSq <= 2.56 && relY >= -0.35 && relY <= 2.30)
+                    // 1.8m horizontal radius, from -0.50m (feet) to 2.50m (head)
+                    if (horizDistSq <= 3.24 && relY >= -0.50 && relY <= 2.50)
                     {
                         bool isThrower = FiredBy != null && FiredBy.EntityId == sPlayer.Entity.EntityId;
 
