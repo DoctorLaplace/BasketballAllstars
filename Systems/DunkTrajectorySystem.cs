@@ -49,7 +49,30 @@ namespace BasketballAllstars.Systems
         private readonly ICoreAPI api;
         private readonly Dictionary<string, ActiveTrajectory> activeTrajectories = new();
         private readonly Dictionary<string, ActiveTrajectory> clientTrajectories = new();
+        private static readonly Dictionary<string, long> noPickupUntilMs = new();
         private static readonly Random rand = new Random();
+
+        public static void SetNoPickupUntil(string playerUid, long timestamp)
+        {
+            if (!string.IsNullOrEmpty(playerUid))
+            {
+                noPickupUntilMs[playerUid] = timestamp;
+            }
+        }
+
+        public static bool IsPickupBlocked(string playerUid, long currentElapsedMs)
+        {
+            if (string.IsNullOrEmpty(playerUid)) return false;
+            if (noPickupUntilMs.TryGetValue(playerUid, out long until))
+            {
+                if (until > currentElapsedMs && (until - currentElapsedMs) <= 5000)
+                {
+                    return true;
+                }
+                noPickupUntilMs.Remove(playerUid);
+            }
+            return false;
+        }
 
         public float ClientJumpCharge { get; set; } = 0f;
         public bool ClientIsChargingJump { get; set; } = false;
@@ -225,9 +248,8 @@ namespace BasketballAllstars.Systems
 
             activeTrajectories[player.PlayerUID] = traj;
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
-            player.Entity.Attributes.SetLong("basketballFallImmunityUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 2000);
-            player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 1000);
-            player.Entity.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
+            player.Entity.Attributes.RemoveAttribute("basketballNoPickupUntilMs");
+            SetNoPickupUntil(player.PlayerUID, api.World.ElapsedMilliseconds + (long)(duration * 1000) + 2000);
             player.Entity.ServerControls.Gliding = true;
             player.Entity.ServerControls.IsFlying = true;
             player.Entity.Controls.Gliding = true;
@@ -411,9 +433,8 @@ namespace BasketballAllstars.Systems
                 Vec3d releaseMotion = new Vec3d(vx / 30.0, Math.Max(vy / 30.0, 0.05), vz / 30.0);
                 entityPlayer.Pos.Motion.Set(releaseMotion.X, releaseMotion.Y, releaseMotion.Z);
                 entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                entityPlayer.Attributes.SetLong("basketballFallImmunityUntilMs", api.World.ElapsedMilliseconds + 2000);
-                entityPlayer.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 1000);
-                entityPlayer.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
+                entityPlayer.Attributes.RemoveAttribute("basketballNoPickupUntilMs");
+                SetNoPickupUntil(playerUid, api.World.ElapsedMilliseconds + 2000);
 
                 activeTrajectories.Remove(playerUid);
                 clientTrajectories.Remove(playerUid);
@@ -571,10 +592,9 @@ namespace BasketballAllstars.Systems
                     var player = sapi.World.PlayerByUid(key) as IServerPlayer;
                     if (player?.Entity != null)
                     {
-                        player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                        player.Entity.Attributes.SetLong("basketballFallImmunityUntilMs", api.World.ElapsedMilliseconds + 2000);
-                        player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 1000);
-                        player.Entity.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
+                        player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                        player.Entity.Attributes.RemoveAttribute("basketballNoPickupUntilMs");
+                        SetNoPickupUntil(key, api.World.ElapsedMilliseconds + 2000);
                         player.Entity.ServerControls.Gliding = false;
                         player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                         player.Entity.Controls.Gliding = false;

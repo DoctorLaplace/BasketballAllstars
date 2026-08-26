@@ -399,17 +399,22 @@ namespace BasketballAllstars.Entities
             base.OnInteract(byEntity, slot, hitPosition, mode);
             if (!Collectible) return;
 
-            if (byEntity is EntityPlayer entityPlayer && entityPlayer.Player is IServerPlayer sPlayer)
+            if (byEntity is EntityPlayer entityPlayer)
             {
-                long noPickupUntil = entityPlayer.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return;
+                entityPlayer.Attributes.RemoveAttribute("basketballNoPickupUntilMs");
+
+                if (DunkTrajectorySystem.IsPickupBlocked(entityPlayer.PlayerUID, World.ElapsedMilliseconds)) return;
 
                 var dunkSys = DunkTrajectorySystem.Get(World.Side);
                 if (dunkSys != null && dunkSys.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _)) return;
 
-                // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
-                byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
-                TryCollect(sPlayer);
+                IServerPlayer? sPlayer = (entityPlayer.Player as IServerPlayer) ?? (World.PlayerByUid(entityPlayer.PlayerUID) as IServerPlayer);
+                if (sPlayer != null)
+                {
+                    // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
+                    byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
+                    TryCollect(sPlayer);
+                }
             }
         }
 
@@ -439,8 +444,9 @@ namespace BasketballAllstars.Entities
             // 2. Player receiving catch (in-flight passes, rebounds, and ground pickups)
             EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ, 1.45f, 2.50f, e => {
                 if (e is not EntityPlayer ep || !ep.Alive) return false;
-                long noPickupUntil = ep.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return false;
+                ep.Attributes.RemoveAttribute("basketballNoPickupUntilMs");
+
+                if (DunkTrajectorySystem.IsPickupBlocked(ep.PlayerUID, World.ElapsedMilliseconds)) return false;
 
                 var dunkSys = DunkTrajectorySystem.Get(World.Side);
                 if (dunkSys != null && dunkSys.IsPlayerInTrajectory(ep.PlayerUID, out _)) return false;
@@ -448,21 +454,25 @@ namespace BasketballAllstars.Entities
                 return true;
             }) as EntityPlayer;
 
-            if (nearestPlayer?.Player is IServerPlayer sPlayer)
+            if (nearestPlayer != null)
             {
-                double playerHeight = nearestPlayer.CollisionBox?.Y2 ?? 1.85;
-                double maxCatchHeight = playerHeight * 1.25;
-                double relY = Pos.Y - nearestPlayer.Pos.Y;
-
-                if (relY >= -0.40 && relY <= maxCatchHeight)
+                IServerPlayer? sPlayer = (nearestPlayer.Player as IServerPlayer) ?? (World.PlayerByUid(nearestPlayer.PlayerUID) as IServerPlayer);
+                if (sPlayer != null)
                 {
-                    bool isThrower = FiredBy != null && FiredBy.EntityId == nearestPlayer.EntityId;
+                    double playerHeight = nearestPlayer.CollisionBox?.Y2 ?? 1.85;
+                    double maxCatchHeight = playerHeight * 1.25;
+                    double relY = Pos.Y - nearestPlayer.Pos.Y;
 
-                    // Non-throwers catch immediately. Throwers catch on rebound, slow speed, flight time, or on ground.
-                    if (!isThrower || timeSinceLaunch > 250 || Pos.Motion.Length() < 0.35 || beforeCollided || OnGround)
+                    if (relY >= -0.40 && relY <= maxCatchHeight)
                     {
-                        TryCollect(sPlayer);
-                        return;
+                        bool isThrower = FiredBy != null && FiredBy.EntityId == nearestPlayer.EntityId;
+
+                        // Non-throwers catch immediately. Throwers catch on rebound, slow speed, flight time, or on ground.
+                        if (!isThrower || timeSinceLaunch > 250 || Pos.Motion.Length() < 0.35 || beforeCollided || OnGround)
+                        {
+                            TryCollect(sPlayer);
+                            return;
+                        }
                     }
                 }
             }
@@ -472,8 +482,8 @@ namespace BasketballAllstars.Entities
         {
             if (player?.Entity != null)
             {
-                long noPickupUntil = player.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return;
+                player.Entity.Attributes.RemoveAttribute("basketballNoPickupUntilMs");
+                if (DunkTrajectorySystem.IsPickupBlocked(player.PlayerUID, World.ElapsedMilliseconds)) return;
 
                 var dunkSys = DunkTrajectorySystem.Get(World.Side);
                 if (dunkSys != null && dunkSys.IsPlayerInTrajectory(player.PlayerUID, out _)) return;

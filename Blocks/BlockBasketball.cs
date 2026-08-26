@@ -37,15 +37,5 @@ namespace BasketballAllstars.Blocks
             }
             return true;
         }
-
-        public override ItemStack[] GetDrops(IWorldAccessor world, BlockPos pos, IPlayer byPlayer, float dropQuantityMultiplier = 1)
-        {
-            Item ballItem = world.GetItem(new AssetLocation("basketballallstars:basketball"));
-            if (ballItem != null)
-            {
-                return new ItemStack[] { new ItemStack(ballItem, 1) };
-            }
-            return base.GetDrops(world, pos, byPlayer, dropQuantityMultiplier);
-        }
     }
 }

@@ -31,7 +31,7 @@ namespace BasketballAllstars
             base.Start(api);
             Instance = this;
 
-            // Register Items, Blocks, BlockEntities, Entities, and Behaviors
+            // Register Items, Blocks, BlockEntities, and Entities
             api.RegisterItemClass("ItemBasketball", typeof(ItemBasketball));
             api.RegisterItemClass("ItemBasketballDummy", typeof(ItemBasketballDummy));
             api.RegisterBlockClass("BlockBasketball", typeof(BlockBasketball));
@@ -39,7 +39,6 @@ namespace BasketballAllstars
             api.RegisterBlockEntityClass("BlockEntityHoop", typeof(BlockEntityHoop));
             api.RegisterEntity("EntityBasketball", typeof(EntityBasketball));
             api.RegisterEntity("EntityBasketballDummy", typeof(EntityBasketballDummy));
-            api.RegisterEntityBehaviorClass("basketballfallimmunity", typeof(EntityBehaviorBasketballFallImmunity));
 
             // Register Network Channel & Packets
             api.Network.RegisterChannel(CHANNEL_NAME)
@@ -76,22 +75,6 @@ namespace BasketballAllstars
                        .SetMessageHandler<InterceptStartRequestMessage>(OnInterceptStartRequest)
                        .SetMessageHandler<AirClashInputProgressMessage>(OnAirClashInputProgress);
             }
-
-            // Ensure player entities have fall immunity behavior attached
-            api.Event.PlayerNowPlaying += (player) =>
-            {
-                if (player?.Entity != null && !player.Entity.HasBehavior("basketballfallimmunity"))
-                {
-                    player.Entity.AddBehavior(new EntityBehaviorBasketballFallImmunity(player.Entity));
-                }
-            };
-            api.Event.PlayerRespawn += (player) =>
-            {
-                if (player?.Entity != null && !player.Entity.HasBehavior("basketballfallimmunity"))
-                {
-                    player.Entity.AddBehavior(new EntityBehaviorBasketballFallImmunity(player.Entity));
-                }
-            };
 
             // Cleanup on player events
             api.Event.PlayerDeath += (player, damageSource) =>

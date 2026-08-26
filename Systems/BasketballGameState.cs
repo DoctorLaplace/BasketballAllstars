@@ -61,8 +61,6 @@ namespace BasketballAllstars.Systems
                 {
                     bool hasBall = IsHoldingBall(player.Entity);
                     bool isBallNearby = IsAnyPlayerHoldingBallNearby(api, player.Entity, 30.0);
-                    long fallImmunityUntil = player.Entity.Attributes.GetLong("basketballFallImmunityUntilMs", 0);
-                    bool hasLingeringFallImmunity = nowMs < fallImmunityUntil;
 
                     if (hasBall || isBallNearby)
                     {
@@ -82,13 +80,6 @@ namespace BasketballAllstars.Systems
                     else
                     {
                         ItemBasketball.RemoveCarrierBuffs(player.Entity);
-
-                        // If player has lingering fall immunity after a dunk (2s), keep fall damage immunity active
-                        if (hasLingeringFallImmunity)
-                        {
-                            player.Entity.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
-                            player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                        }
                     }
                 }
                 catch
