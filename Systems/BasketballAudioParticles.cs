@@ -159,16 +159,95 @@ namespace BasketballAllstars.Systems
             }
         }
 
-        public static void PlayClashSound(IWorldAccessor world, Vec3d clashPos)
+        public static void PlayClashStartSounds(IWorldAccessor world, Vec3d clashPos)
         {
+            // Parry collide plays when slamming into the other player mid dunk and beginning the clash, made mid to low quiet
             world.PlaySoundAt(
-                new AssetLocation("game:sounds/effect/anvilhit"),
+                new AssetLocation("basketballallstars:sounds/parrycollide"),
                 clashPos.X, clashPos.Y, clashPos.Z,
                 null,
                 false,
-                48f,
-                1.1f
+                40f,
+                0.45f
             );
+
+            // Ambient rumble while clashing that can be heard from very far away
+            world.PlaySoundAt(
+                new AssetLocation("basketballallstars:sounds/ambientrumble"),
+                clashPos.X, clashPos.Y, clashPos.Z,
+                null,
+                false,
+                90f,
+                0.80f
+            );
+
+            // Electric clash quietly plays while clashed
+            world.PlaySoundAt(
+                new AssetLocation("basketballallstars:sounds/electricalclash"),
+                clashPos.X, clashPos.Y, clashPos.Z,
+                null,
+                false,
+                36f,
+                0.32f
+            );
+
+            // Latent energy plays while clashed
+            world.PlaySoundAt(
+                new AssetLocation("basketballallstars:sounds/latentenergy"),
+                clashPos.X, clashPos.Y, clashPos.Z,
+                null,
+                false,
+                42f,
+                0.45f
+            );
+        }
+
+        public static void PlayParryHitSound(IWorldAccessor world, Vec3d pos)
+        {
+            // Parry hits 1-3 play randomly when inputting an arrow, audible to everyone within range
+            int soundIndex = rand.Next(1, 4);
+            float pitch = 0.94f + (float)rand.NextDouble() * 0.12f;
+            world.PlaySoundAt(
+                new AssetLocation($"basketballallstars:sounds/parryhit{soundIndex}"),
+                pos.X, pos.Y, pos.Z,
+                null,
+                pitch,
+                38f,
+                0.90f
+            );
+        }
+
+        public static void PlayArrowSwipeSound(ICoreClientAPI capi)
+        {
+            if (capi.World?.Player?.Entity == null) return;
+            var pos = capi.World.Player.Entity.Pos;
+            capi.World.PlaySoundAt(
+                new AssetLocation("basketballallstars:sounds/arrowswipe"),
+                pos.X, pos.Y, pos.Z,
+                null,
+                true,
+                16f,
+                0.85f
+            );
+        }
+
+        public static void PlayParryDefeatSound(IWorldAccessor world, Vec3d clashPos)
+        {
+            // Parry defeat 1-3 plays randomly when a player is defeated in the clash
+            int soundIndex = rand.Next(1, 4);
+            world.PlaySoundAt(
+                new AssetLocation($"basketballallstars:sounds/parrydefeated{soundIndex}"),
+                clashPos.X, clashPos.Y, clashPos.Z,
+                null,
+                false,
+                55f,
+                1.05f
+            );
+        }
+
+        public static void PlayClashSound(IWorldAccessor world, Vec3d clashPos)
+        {
+            PlayClashStartSounds(world, clashPos);
         }
 
         public static void SpawnBounceParticles(IWorldAccessor world, Vec3d pos)

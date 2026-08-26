@@ -3,6 +3,7 @@ using Cairo;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using BasketballAllstars.Network;
+using BasketballAllstars.Systems;
 
 namespace BasketballAllstars.Gui
 {
@@ -200,6 +201,10 @@ namespace BasketballAllstars.Gui
             if (inputDir.HasValue && myProgress < sequence.Length)
             {
                 args.Handled = true;
+
+                // Play arrowswipe sound when inputting a quicktime arrow
+                BasketballAudioParticles.PlayArrowSwipeSound(capi);
+
                 if (inputDir.Value == sequence[myProgress])
                 {
                     // Correct arrow!
@@ -212,8 +217,11 @@ namespace BasketballAllstars.Gui
                         CompletedInputs = myProgress
                     });
 
-                    // Play crisp tick sound
-                    capi.World.PlaySoundAt(new AssetLocation("game:sounds/tick"), capi.World.Player.Entity.Pos.X, capi.World.Player.Entity.Pos.Y, capi.World.Player.Entity.Pos.Z, null, true, 8f, 1.2f + myProgress * 0.08f);
+                    // Play random parry hit sound for immediate local responsive feedback
+                    if (capi.World.Player?.Entity != null)
+                    {
+                        BasketballAudioParticles.PlayParryHitSound(capi.World, capi.World.Player.Entity.Pos.XYZ);
+                    }
 
                     if (myProgress >= sequence.Length)
                     {
@@ -235,8 +243,6 @@ namespace BasketballAllstars.Gui
                         DuelId = duelId,
                         CompletedInputs = -1
                     });
-
-                    capi.World.PlaySoundAt(new AssetLocation("game:sounds/effect/woodbreak"), capi.World.Player.Entity.Pos.X, capi.World.Player.Entity.Pos.Y, capi.World.Player.Entity.Pos.Z, null, true, 8f, 0.8f);
                 }
 
                 SingleComposer?.GetCustomDraw("arrowCanvas")?.Redraw();

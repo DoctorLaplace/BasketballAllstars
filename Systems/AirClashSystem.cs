@@ -129,7 +129,7 @@ namespace BasketballAllstars.Systems
             activeDuels[duelId] = duel;
 
             // Audio & Spark Effects
-            BasketballAudioParticles.PlayClashSound(api.World, clashPos);
+            BasketballAudioParticles.PlayClashStartSounds(api.World, clashPos);
             BasketballAudioParticles.SpawnClashSparks(api.World, clashPos);
 
             // Steal immunity during active clash
@@ -163,6 +163,10 @@ namespace BasketballAllstars.Systems
                 ResolveDuel(duel, winnerIsDunker: !isDunker);
                 return;
             }
+
+            // Play parry hit sound and spawn spark burst audible to all nearby players
+            BasketballAudioParticles.PlayParryHitSound(api.World, duel.ClashPos);
+            BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
 
             if (isDunker)
             {
@@ -233,12 +237,13 @@ namespace BasketballAllstars.Systems
                 }
             }
 
+            // Play random parry defeat sound and explosive sparks at clash position
+            BasketballAudioParticles.PlayParryDefeatSound(api.World, duel.ClashPos);
+            BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
+
             if (winnerIsDunker)
             {
                 // Dunker won the clash! Deflect interceptor back in the opposite angle they came from and resume dunk
-                BasketballAudioParticles.PlayClashSound(api.World, duel.ClashPos);
-                BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
-
                 DunkTrajectorySystem.Instance?.CancelTrajectory(duel.InterceptorUid);
 
                 if (interceptor?.Entity != null)
@@ -262,8 +267,6 @@ namespace BasketballAllstars.Systems
             else
             {
                 // Interceptor won the clash! Steal ball and throw dunker in the direction interceptor came from
-                BasketballAudioParticles.PlayClashSound(api.World, duel.ClashPos);
-                BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
                 BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos.AddCopy(0, 0.5, 0));
 
                 // Transfer ball to interceptor
