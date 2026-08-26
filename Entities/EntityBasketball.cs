@@ -407,7 +407,8 @@ namespace BasketballAllstars.Entities
                 var dunkSys = DunkTrajectorySystem.Get(World.Side);
                 if (dunkSys != null && dunkSys.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _)) return;
 
-                if (entityPlayer.Player is IServerPlayer sPlayer)
+                IServerPlayer? sPlayer = entityPlayer.Player as IServerPlayer ?? (World as IServerWorldAccessor)?.PlayerByUid(entityPlayer.PlayerUID) as IServerPlayer;
+                if (sPlayer != null)
                 {
                     // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
                     byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
@@ -437,35 +438,40 @@ namespace BasketballAllstars.Entities
             }
 
             // 2. Player receiving catch (in-flight passes, rebounds, and ground pickups)
-            EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ, 1.6f, 2.4f, e => {
-                if (e is not EntityPlayer ep || !ep.Alive) return false;
-                long noPickupUntil = ep.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return false;
-
-                var dunkSys = DunkTrajectorySystem.Get(World.Side);
-                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(ep.PlayerUID, out _)) return false;
-
-                return true;
-            }) as EntityPlayer;
-
-            if (nearestPlayer?.Player is IServerPlayer sPlayer)
+            if (World is IServerWorldAccessor serverWorld)
             {
-                double relY = Pos.Y - nearestPlayer.Pos.Y;
-                if (relY >= -0.35 && relY <= 2.30)
+                Vec3d ballPos = Pos.XYZ;
+                foreach (IServerPlayer sPlayer in serverWorld.AllOnlinePlayers)
                 {
-                    bool isThrower = FiredBy != null && FiredBy.EntityId == nearestPlayer.EntityId;
+                    if (sPlayer.ConnectionState != EnumClientState.Playing || sPlayer.Entity == null || !sPlayer.Entity.Alive) continue;
 
-                    // If thrown by someone else: immediate catch
-                    if (!isThrower)
+                    long noPickupUntil = sPlayer.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+                    if (noPickupUntil > World.ElapsedMilliseconds) continue;
+
+                    var dunkSys = DunkTrajectorySystem.Get(World.Side);
+                    if (dunkSys != null && dunkSys.IsPlayerInTrajectory(sPlayer.PlayerUID, out _)) continue;
+
+                    Vec3d playerPos = sPlayer.Entity.Pos.XYZ;
+                    double horizDistSq = Math.Pow(ballPos.X - playerPos.X, 2) + Math.Pow(ballPos.Z - playerPos.Z, 2);
+                    double relY = ballPos.Y - playerPos.Y;
+
+                    // 1.6m horizontal radius, from -0.35m (feet) to 2.30m (head)
+                    if (horizDistSq <= 2.56 && relY >= -0.35 && relY <= 2.30)
                     {
-                        TryCollect(sPlayer);
-                        return;
-                    }
-                    // If thrown by self: catch on rebound, ground landing, slow speed, or after 250ms in flight
-                    else if (isThrower && (timeSinceLaunch > 250 || OnGround || beforeCollided || Pos.Motion.Length() < 0.30))
-                    {
-                        TryCollect(sPlayer);
-                        return;
+                        bool isThrower = FiredBy != null && FiredBy.EntityId == sPlayer.Entity.EntityId;
+
+                        // If thrown by someone else: immediate catch
+                        if (!isThrower)
+                        {
+                            TryCollect(sPlayer);
+                            return;
+                        }
+                        // If thrown by self: catch on rebound, ground landing, slow speed, or after 250ms in flight
+                        else if (isThrower && (timeSinceLaunch > 250 || OnGround || beforeCollided || Pos.Motion.Length() < 0.30))
+                        {
+                            TryCollect(sPlayer);
+                            return;
+                        }
                     }
                 }
             }

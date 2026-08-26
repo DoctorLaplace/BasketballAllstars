@@ -258,6 +258,12 @@ namespace BasketballAllstars.Systems
             IServerPlayer? dunkerPlayer = (api as ICoreServerAPI)?.World.PlayerByUid(targetDunkerUid) as IServerPlayer;
             if (dunkerPlayer?.Entity == null) return;
 
+            // Interceptions can only be initiated against players who are actively performing a slam dunk!
+            if (!activeTrajectories.TryGetValue(targetDunkerUid, out var dunkerTraj) || !dunkerTraj.IsDunk)
+            {
+                return;
+            }
+
             Vec3d startPos = player.Entity.Pos.XYZ.Clone();
             Vec3d dunkerPos = dunkerPlayer.Entity.Pos.XYZ.Clone();
             double distance = startPos.DistanceTo(dunkerPos);
@@ -910,6 +916,12 @@ namespace BasketballAllstars.Systems
             }
             else if (!string.IsNullOrEmpty(ClientLockedDunkerUid))
             {
+                // Verify the target is actually performing a slam dunk
+                if (!clientTrajectories.TryGetValue(ClientLockedDunkerUid, out var dunkerTraj) || !dunkerTraj.IsDunk)
+                {
+                    return;
+                }
+
                 // Request and predict Interception
                 channel?.SendPacket(new InterceptStartRequestMessage
                 {
@@ -1020,10 +1032,10 @@ namespace BasketballAllstars.Systems
             {
                 if (otherPlayer.PlayerUID == player.PlayerUID || otherPlayer.Entity == null) continue;
 
-                bool isAirborne = otherPlayer.Entity.WatchedAttributes.GetBool("basketballFallImmunity", false) ||
-                                  (clientTrajectories.TryGetValue(otherPlayer.PlayerUID, out var traj) && traj.IsDunk && !traj.IsSuspended);
+                // Only lock onto players who are actively performing a slam dunk arc
+                bool isAirborneDunker = clientTrajectories.TryGetValue(otherPlayer.PlayerUID, out var traj) && traj.IsDunk && !traj.IsSuspended;
 
-                if (isAirborne)
+                if (isAirborneDunker)
                 {
                     Vec3d toTarget = otherPlayer.Entity.Pos.XYZ.SubCopy(eyePos);
                     double dist = toTarget.Length();
