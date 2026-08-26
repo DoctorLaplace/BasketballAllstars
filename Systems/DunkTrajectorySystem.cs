@@ -224,8 +224,9 @@ namespace BasketballAllstars.Systems
             };
 
             activeTrajectories[player.PlayerUID] = traj;
+            player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
-            player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 2000);
+            player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 1000);
             player.Entity.ServerControls.Gliding = true;
             player.Entity.ServerControls.IsFlying = true;
             player.Entity.Controls.Gliding = true;
@@ -283,6 +284,7 @@ namespace BasketballAllstars.Systems
             };
 
             activeTrajectories[player.PlayerUID] = traj;
+            player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
             player.Entity.ServerControls.Gliding = true;
             player.Entity.ServerControls.IsFlying = true;
@@ -360,7 +362,16 @@ namespace BasketballAllstars.Systems
                     player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
                     player.Entity.ServerControls.Gliding = false;
                     player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
-                    player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                    player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
+                    player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+                    sapi.Event.RegisterCallback((dt) =>
+                    {
+                        if (player?.Entity != null && player.Entity.Alive)
+                        {
+                            player.Entity.Stats.Remove("fallDamageFactor", "basketball_dunk");
+                            player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                        }
+                    }, 2000);
                 }
 
                 var serverChannel = sapi.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
@@ -408,8 +419,17 @@ namespace BasketballAllstars.Systems
 
                 Vec3d releaseMotion = new Vec3d(vx / 30.0, Math.Max(vy / 30.0, 0.05), vz / 30.0);
                 entityPlayer.Pos.Motion.Set(releaseMotion.X, releaseMotion.Y, releaseMotion.Z);
+                entityPlayer.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
                 entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                entityPlayer.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 2000);
+                api.Event.RegisterCallback((dt) =>
+                {
+                    if (entityPlayer != null && entityPlayer.Alive)
+                    {
+                        entityPlayer.Stats.Remove("fallDamageFactor", "basketball_dunk");
+                        entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                    }
+                }, 2000);
+                entityPlayer.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 1000);
 
                 activeTrajectories.Remove(playerUid);
                 clientTrajectories.Remove(playerUid);
@@ -567,8 +587,19 @@ namespace BasketballAllstars.Systems
                     var player = sapi.World.PlayerByUid(key) as IServerPlayer;
                     if (player?.Entity != null)
                     {
-                        player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
-                        player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 2000);
+                        // 2.0s lingering fall damage immunity after completing dunk
+                        player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
+                        player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+                        sapi.Event.RegisterCallback((dt) =>
+                        {
+                            if (player?.Entity != null && player.Entity.Alive)
+                            {
+                                player.Entity.Stats.Remove("fallDamageFactor", "basketball_dunk");
+                                player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
+                            }
+                        }, 2000);
+
+                        player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 1000);
                         player.Entity.ServerControls.Gliding = false;
                         player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                         player.Entity.Controls.Gliding = false;

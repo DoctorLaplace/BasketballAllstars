@@ -217,6 +217,7 @@ namespace BasketballAllstars.Items
             entityPlayer.Stats.Set("jumpHeightMul", "basketball_carrier", 0.60f, false);
 
             // Fall damage resistance (only while actively holding in hand)
+            entityPlayer.Stats.Set("fallDamageFactor", "basketball_carrier", 0.0f, false);
             entityPlayer.Stats.Set("fallDamageResistance", "basketball_carrier", 1.0f, false);
 
             entityPlayer.walkSpeed = entityPlayer.Stats.GetBlended("walkspeed");
@@ -226,6 +227,7 @@ namespace BasketballAllstars.Items
         {
             entityPlayer.Stats.Remove("walkspeed", "basketball_carrier");
             entityPlayer.Stats.Remove("jumpHeightMul", "basketball_carrier");
+            entityPlayer.Stats.Remove("fallDamageFactor", "basketball_carrier");
             entityPlayer.Stats.Remove("fallDamageResistance", "basketball_carrier");
             entityPlayer.walkSpeed = entityPlayer.Stats.GetBlended("walkspeed");
         }
