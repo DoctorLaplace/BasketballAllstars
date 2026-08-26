@@ -182,6 +182,9 @@ namespace BasketballAllstars.Systems
             Block block = api.World.BlockAccessor.GetBlock(hoopPos);
             if (block is not BlockHoop hoopBlock) return;
 
+            var beHoop = api.World.BlockAccessor.GetBlockEntity(hoopPos) as BlockEntityHoop;
+            if (beHoop != null && !beHoop.IsDunkable) return;
+
             Vec3d rimCenter = hoopBlock.GetRimCenter(hoopPos);
             Vec3d startPos = player.Entity.Pos.XYZ.Clone();
 
@@ -866,6 +869,8 @@ namespace BasketballAllstars.Systems
                 Block block = capi.World.BlockAccessor.GetBlock(ClientLockedHoopPos);
                 if (block is BlockHoop hoopBlock)
                 {
+                    var beHoop = capi.World.BlockAccessor.GetBlockEntity(ClientLockedHoopPos) as BlockEntityHoop;
+                    if (beHoop != null && !beHoop.IsDunkable) return;
                     Vec3d rimCenter = hoopBlock.GetRimCenter(ClientLockedHoopPos);
                     Vec3d startPos = player.Entity.Pos.XYZ.Clone();
 
@@ -978,6 +983,9 @@ namespace BasketballAllstars.Systems
                         Block block = capi.World.BlockAccessor.GetBlock(checkPos);
                         if (block is BlockHoop hoopBlock)
                         {
+                            var beHoop = capi.World.BlockAccessor.GetBlockEntity(checkPos) as BlockEntityHoop;
+                            if (beHoop != null && !beHoop.IsDunkable) continue;
+
                             Vec3d rimCenter = hoopBlock.GetRimCenter(checkPos);
                             Vec3d toHoop = rimCenter.SubCopy(eyePos);
                             double dist = toHoop.Length();
