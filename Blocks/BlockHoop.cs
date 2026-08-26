@@ -7,33 +7,7 @@ namespace BasketballAllstars.Blocks
 {
     public class BlockHoop : Block
     {
-        public override bool OnBlockInteractStart(IWorldAccessor world, IPlayer byPlayer, BlockSelection blockSel)
-        {
-            if (byPlayer?.Entity?.Controls?.Sneak == true && blockSel?.Position != null)
-            {
-                if (world.BlockAccessor.GetBlockEntity(blockSel.Position) is BlockEntityHoop beHoop)
-                {
-                    bool newState = beHoop.ToggleDunkable(byPlayer);
-                    if (world.Side == EnumAppSide.Client && byPlayer is IClientPlayer clientPlayer)
-                    {
-                        string status = newState ? "Dunking ALLOWED" : "Dunking DISABLED";
-                        clientPlayer.ShowChatNotification($"Basketball Hoop: {status}");
-                    }
-                    world.PlaySoundAt(new AssetLocation("sounds/toggleswitch"), blockSel.Position.X + 0.5, blockSel.Position.Y + 0.5, blockSel.Position.Z + 0.5, byPlayer, true, 16f, 0.9f);
-                    return true;
-                }
-            }
-            return base.OnBlockInteractStart(world, byPlayer, blockSel);
-        }
-
-        public override string GetPlacedBlockInfo(IWorldAccessor world, BlockPos pos, IPlayer forPlayer)
-        {
-            if (world.BlockAccessor.GetBlockEntity(pos) is BlockEntityHoop beHoop)
-            {
-                return beHoop.IsDunkable ? "Dunking: Allowed (Sneak + Right Click to disable)" : "Dunking: Disabled (Sneak + Right Click to allow)";
-            }
-            return base.GetPlacedBlockInfo(world, pos, forPlayer);
-        }
+        public override string GetPlacedBlockInfo(IWorldAccessor world, BlockPos pos, IPlayer forPlayer) => "";
 
         public Vec3d GetRimCenter(BlockPos pos)
         {

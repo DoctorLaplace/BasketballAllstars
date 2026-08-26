@@ -20,10 +20,10 @@ namespace BasketballAllstars.Gui
 
         public override string ToggleKeyCombinationCode => null!;
 
-        private int duelId;
-        private string dunkerUid;
-        private string interceptorUid;
-        private byte[] sequence;
+        private readonly int duelId;
+        private readonly string dunkerUid;
+        private readonly string interceptorUid;
+        private readonly byte[] sequence;
         private int myProgress = 0;
         private double scrollProgress = 0.0;
         private bool hasFailed = false;
@@ -48,28 +48,9 @@ namespace BasketballAllstars.Gui
 
         public static void OpenDuel(ICoreClientAPI capi, AirClashStartMessage msg)
         {
-            if (Instance != null && Instance.IsOpened())
-            {
-                Instance.ResetSequence(msg);
-                return;
-            }
             Instance?.TryClose();
             var dialog = new GuiDialogAirClashQTE(capi, msg);
             dialog.TryOpen();
-        }
-
-        public void ResetSequence(AirClashStartMessage msg)
-        {
-            duelId = msg.DuelId;
-            dunkerUid = msg.DunkerUid;
-            interceptorUid = msg.InterceptorUid;
-            sequence = msg.QTESequence;
-            myProgress = 0;
-            scrollProgress = 0;
-            hasFailed = false;
-            isFinished = false;
-            closeTimer = 0f;
-            SingleComposer?.GetCustomDraw("arrowCanvas")?.Redraw();
         }
 
         public override bool TryOpen()

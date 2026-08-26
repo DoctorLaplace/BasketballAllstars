@@ -14,18 +14,10 @@ namespace BasketballAllstars.Blocks
         public int TotalBasketsScored { get; private set; } = 0;
         public int TotalPoints { get; private set; } = 0;
         public double LastScoredTimeMs { get; private set; } = 0;
-        public bool IsDunkable { get; set; } = true;
 
         public override void Initialize(ICoreAPI api)
         {
             base.Initialize(api);
-        }
-
-        public bool ToggleDunkable(IPlayer byPlayer)
-        {
-            IsDunkable = !IsDunkable;
-            MarkDirty(true);
-            return IsDunkable;
         }
 
         public void ScoreBasket(IServerPlayer? scorer, bool isDunk)
@@ -65,7 +57,6 @@ namespace BasketballAllstars.Blocks
             tree.SetInt("totalBaskets", TotalBasketsScored);
             tree.SetInt("totalPoints", TotalPoints);
             tree.SetDouble("lastScoredTimeMs", LastScoredTimeMs);
-            tree.SetBool("isDunkable", IsDunkable);
         }
 
         public override void FromTreeAttributes(ITreeAttribute tree, IWorldAccessor worldForResolving)
@@ -74,7 +65,6 @@ namespace BasketballAllstars.Blocks
             TotalBasketsScored = tree.GetInt("totalBaskets", 0);
             TotalPoints = tree.GetInt("totalPoints", 0);
             LastScoredTimeMs = tree.GetDouble("lastScoredTimeMs", 0);
-            IsDunkable = tree.GetBool("isDunkable", true);
         }
     }
 }

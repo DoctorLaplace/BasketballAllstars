@@ -177,13 +177,10 @@ namespace BasketballAllstars.Systems
 
         public void StartDunkTrajectory(IServerPlayer player, BlockPos hoopPos, float charge, int requestedStyle = -1, int requestedRevs = -1)
         {
-            if (player.Entity == null || !player.Entity.Alive || charge < 0.40f) return;
+            if (player.Entity == null || !player.Entity.Alive || !player.Entity.OnGround || charge < 0.50f) return;
 
             Block block = api.World.BlockAccessor.GetBlock(hoopPos);
             if (block is not BlockHoop hoopBlock) return;
-
-            var beHoop = api.World.BlockAccessor.GetBlockEntity(hoopPos) as BlockEntityHoop;
-            if (beHoop != null && !beHoop.IsDunkable) return;
 
             Vec3d rimCenter = hoopBlock.GetRimCenter(hoopPos);
             Vec3d startPos = player.Entity.Pos.XYZ.Clone();
@@ -201,6 +198,8 @@ namespace BasketballAllstars.Systems
 
             // Flight yaw points directly into the rim center from takeoff
             float flightYaw = (float)Math.Atan2(rimCenter.X - startPos.X, rimCenter.Z - startPos.Z);
+
+            if (activeTrajectories.ContainsKey(player.PlayerUID)) return;
 
             double distance = startPos.DistanceTo(rimCenter);
             float duration = (float)Math.Clamp(distance / 6.0, 0.9, 2.5);
@@ -225,9 +224,10 @@ namespace BasketballAllstars.Systems
             };
 
             activeTrajectories[player.PlayerUID] = traj;
-            player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+            player.Entity.Attributes.SetLong("basketballFallImmunityUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 2000);
             player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + (long)(duration * 1000) + 1000);
+            player.Entity.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
             player.Entity.ServerControls.Gliding = true;
             player.Entity.ServerControls.IsFlying = true;
             player.Entity.Controls.Gliding = true;
@@ -255,12 +255,6 @@ namespace BasketballAllstars.Systems
             if (player.Entity == null) return;
             IServerPlayer? dunkerPlayer = (api as ICoreServerAPI)?.World.PlayerByUid(targetDunkerUid) as IServerPlayer;
             if (dunkerPlayer?.Entity == null) return;
-
-            // Interceptions can only be initiated against players who are actively performing a slam dunk!
-            if (!activeTrajectories.TryGetValue(targetDunkerUid, out var dunkerTraj) || !dunkerTraj.IsDunk)
-            {
-                return;
-            }
 
             Vec3d startPos = player.Entity.Pos.XYZ.Clone();
             Vec3d dunkerPos = dunkerPlayer.Entity.Pos.XYZ.Clone();
@@ -291,7 +285,6 @@ namespace BasketballAllstars.Systems
             };
 
             activeTrajectories[player.PlayerUID] = traj;
-            player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
             player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
             player.Entity.ServerControls.Gliding = true;
             player.Entity.ServerControls.IsFlying = true;
@@ -369,16 +362,7 @@ namespace BasketballAllstars.Systems
                     player.Entity.Controls.IsFlying = player.WorldData?.FreeMove ?? false;
                     player.Entity.ServerControls.Gliding = false;
                     player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
-                    player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
-                    player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                    sapi.Event.RegisterCallback((dt) =>
-                    {
-                        if (player?.Entity != null && player.Entity.Alive)
-                        {
-                            player.Entity.Stats.Remove("fallDamageFactor", "basketball_dunk");
-                            player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
-                        }
-                    }, 2000);
+                    player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
                 }
 
                 var serverChannel = sapi.Network.GetChannel(BasketballAllstarsModSystem.CHANNEL_NAME);
@@ -426,17 +410,10 @@ namespace BasketballAllstars.Systems
 
                 Vec3d releaseMotion = new Vec3d(vx / 30.0, Math.Max(vy / 30.0, 0.05), vz / 30.0);
                 entityPlayer.Pos.Motion.Set(releaseMotion.X, releaseMotion.Y, releaseMotion.Z);
-                entityPlayer.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
                 entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                api.Event.RegisterCallback((dt) =>
-                {
-                    if (entityPlayer != null && entityPlayer.Alive)
-                    {
-                        entityPlayer.Stats.Remove("fallDamageFactor", "basketball_dunk");
-                        entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", false);
-                    }
-                }, 2000);
+                entityPlayer.Attributes.SetLong("basketballFallImmunityUntilMs", api.World.ElapsedMilliseconds + 2000);
                 entityPlayer.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 1000);
+                entityPlayer.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
 
                 activeTrajectories.Remove(playerUid);
                 clientTrajectories.Remove(playerUid);
@@ -594,19 +571,10 @@ namespace BasketballAllstars.Systems
                     var player = sapi.World.PlayerByUid(key) as IServerPlayer;
                     if (player?.Entity != null)
                     {
-                        // 2.0s lingering fall damage immunity after completing dunk
-                        player.Entity.Stats.Set("fallDamageFactor", "basketball_dunk", 0.0f, false);
                         player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
-                        sapi.Event.RegisterCallback((dt) =>
-                        {
-                            if (player?.Entity != null && player.Entity.Alive)
-                            {
-                                player.Entity.Stats.Remove("fallDamageFactor", "basketball_dunk");
-                                player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", false);
-                            }
-                        }, 2000);
-
+                        player.Entity.Attributes.SetLong("basketballFallImmunityUntilMs", api.World.ElapsedMilliseconds + 2000);
                         player.Entity.Attributes.SetLong("basketballNoPickupUntilMs", api.World.ElapsedMilliseconds + 1000);
+                        player.Entity.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
                         player.Entity.ServerControls.Gliding = false;
                         player.Entity.ServerControls.IsFlying = player.WorldData?.FreeMove ?? false;
                         player.Entity.Controls.Gliding = false;
@@ -873,8 +841,6 @@ namespace BasketballAllstars.Systems
                 Block block = capi.World.BlockAccessor.GetBlock(ClientLockedHoopPos);
                 if (block is BlockHoop hoopBlock)
                 {
-                    var beHoop = capi.World.BlockAccessor.GetBlockEntity(ClientLockedHoopPos) as BlockEntityHoop;
-                    if (beHoop != null && !beHoop.IsDunkable) return;
                     Vec3d rimCenter = hoopBlock.GetRimCenter(ClientLockedHoopPos);
                     Vec3d startPos = player.Entity.Pos.XYZ.Clone();
 
@@ -914,12 +880,6 @@ namespace BasketballAllstars.Systems
             }
             else if (!string.IsNullOrEmpty(ClientLockedDunkerUid))
             {
-                // Verify the target is actually performing a slam dunk
-                if (!clientTrajectories.TryGetValue(ClientLockedDunkerUid, out var dunkerTraj) || !dunkerTraj.IsDunk)
-                {
-                    return;
-                }
-
                 // Request and predict Interception
                 channel?.SendPacket(new InterceptStartRequestMessage
                 {
@@ -993,17 +953,14 @@ namespace BasketballAllstars.Systems
                         Block block = capi.World.BlockAccessor.GetBlock(checkPos);
                         if (block is BlockHoop hoopBlock)
                         {
-                            var beHoop = capi.World.BlockAccessor.GetBlockEntity(checkPos) as BlockEntityHoop;
-                            if (beHoop != null && !beHoop.IsDunkable) continue;
-
                             Vec3d rimCenter = hoopBlock.GetRimCenter(checkPos);
                             Vec3d toHoop = rimCenter.SubCopy(eyePos);
                             double dist = toHoop.Length();
-                            if (dist > 1.5 && dist <= 22.0)
+                            if (dist > 1.8 && dist <= 20.0)
                             {
                                 Vec3d dirToHoop = toHoop.Normalize();
                                 double dot = lookVec.Dot(dirToHoop);
-                                if (dot > 0.65 && dot > bestScore)
+                                if (dot > 0.78 && dot > bestScore)
                                 {
                                     bestScore = dot;
                                     bestHoop = checkPos;
@@ -1030,10 +987,10 @@ namespace BasketballAllstars.Systems
             {
                 if (otherPlayer.PlayerUID == player.PlayerUID || otherPlayer.Entity == null) continue;
 
-                // Only lock onto players who are actively performing a slam dunk arc
-                bool isAirborneDunker = clientTrajectories.TryGetValue(otherPlayer.PlayerUID, out var traj) && traj.IsDunk && !traj.IsSuspended;
+                bool isAirborne = otherPlayer.Entity.WatchedAttributes.GetBool("basketballFallImmunity", false) ||
+                                  (clientTrajectories.TryGetValue(otherPlayer.PlayerUID, out var traj) && traj.IsDunk && !traj.IsSuspended);
 
-                if (isAirborneDunker)
+                if (isAirborne)
                 {
                     Vec3d toTarget = otherPlayer.Entity.Pos.XYZ.SubCopy(eyePos);
                     double dist = toTarget.Length();

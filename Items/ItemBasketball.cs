@@ -213,12 +213,12 @@ namespace BasketballAllstars.Items
             float speedMod = isChargingJump ? -0.25f : 0.35f;
             entityPlayer.Stats.Set("walkspeed", "basketball_carrier", speedMod, false);
 
-            // Jump height boost (only while actively holding in hand)
+            // Jump height boost (only while actively holding in hand or near ball)
             entityPlayer.Stats.Set("jumpHeightMul", "basketball_carrier", 0.60f, false);
 
-            // Fall damage resistance (only while actively holding in hand)
-            entityPlayer.Stats.Set("fallDamageFactor", "basketball_carrier", 0.0f, false);
-            entityPlayer.Stats.Set("fallDamageResistance", "basketball_carrier", 1.0f, false);
+            // Fall damage immunity: reduce fallDamageFactor by 1.0 (base 1.0 - 1.0 = 0.0)
+            entityPlayer.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
+            entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", true);
 
             entityPlayer.walkSpeed = entityPlayer.Stats.GetBlended("walkspeed");
         }
@@ -228,7 +228,7 @@ namespace BasketballAllstars.Items
             entityPlayer.Stats.Remove("walkspeed", "basketball_carrier");
             entityPlayer.Stats.Remove("jumpHeightMul", "basketball_carrier");
             entityPlayer.Stats.Remove("fallDamageFactor", "basketball_carrier");
-            entityPlayer.Stats.Remove("fallDamageResistance", "basketball_carrier");
+            entityPlayer.WatchedAttributes.SetBool("basketballFallImmunity", false);
             entityPlayer.walkSpeed = entityPlayer.Stats.GetBlended("walkspeed");
         }
     }

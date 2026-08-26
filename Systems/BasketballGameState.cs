@@ -61,6 +61,8 @@ namespace BasketballAllstars.Systems
                 {
                     bool hasBall = IsHoldingBall(player.Entity);
                     bool isBallNearby = IsAnyPlayerHoldingBallNearby(api, player.Entity, 30.0);
+                    long fallImmunityUntil = player.Entity.Attributes.GetLong("basketballFallImmunityUntilMs", 0);
+                    bool hasLingeringFallImmunity = nowMs < fallImmunityUntil;
 
                     if (hasBall || isBallNearby)
                     {
@@ -80,6 +82,13 @@ namespace BasketballAllstars.Systems
                     else
                     {
                         ItemBasketball.RemoveCarrierBuffs(player.Entity);
+
+                        // If player has lingering fall immunity after a dunk (2s), keep fall damage immunity active
+                        if (hasLingeringFallImmunity)
+                        {
+                            player.Entity.Stats.Set("fallDamageFactor", "basketball_carrier", -1.0f, false);
+                            player.Entity.WatchedAttributes.SetBool("basketballFallImmunity", true);
+                        }
                     }
                 }
                 catch
@@ -271,19 +280,11 @@ namespace BasketballAllstars.Systems
             if (player == null) return false;
             try
             {
-                var rightStack = player.RightHandItemSlot?.Itemstack;
-                if (rightStack?.Item is ItemBasketball || rightStack?.Collectible?.Code?.Path == "basketball") return true;
+                IPlayer? p = player.World?.PlayerByUid(player.PlayerUID);
+                if (p?.InventoryManager == null) return false;
 
-                var leftStack = player.LeftHandItemSlot?.Itemstack;
-                if (leftStack?.Item is ItemBasketball || leftStack?.Collectible?.Code?.Path == "basketball") return true;
-
-                // Fallback to active hotbar slot
-                if (player.Player?.InventoryManager?.ActiveHotbarSlot?.Itemstack is ItemStack activeStack)
-                {
-                    if (activeStack.Item is ItemBasketball || activeStack.Collectible?.Code?.Path == "basketball") return true;
-                }
-
-                return false;
+                return player.RightHandItemSlot?.Itemstack?.Item is ItemBasketball ||
+                       player.LeftHandItemSlot?.Itemstack?.Item is ItemBasketball;
             }
             catch
             {
@@ -330,19 +331,11 @@ namespace BasketballAllstars.Systems
             if (player == null) return null;
             try
             {
-                var rightStack = player.RightHandItemSlot?.Itemstack;
-                if (rightStack?.Item is ItemBasketball || rightStack?.Collectible?.Code?.Path == "basketball")
-                    return player.RightHandItemSlot;
+                IPlayer? p = player.World?.PlayerByUid(player.PlayerUID);
+                if (p?.InventoryManager == null) return null;
 
-                var leftStack = player.LeftHandItemSlot?.Itemstack;
-                if (leftStack?.Item is ItemBasketball || leftStack?.Collectible?.Code?.Path == "basketball")
-                    return player.LeftHandItemSlot;
-
-                if (player.Player?.InventoryManager?.ActiveHotbarSlot?.Itemstack is ItemStack activeStack)
-                {
-                    if (activeStack.Item is ItemBasketball || activeStack.Collectible?.Code?.Path == "basketball")
-                        return player.Player.InventoryManager.ActiveHotbarSlot;
-                }
+                if (player.RightHandItemSlot?.Itemstack?.Item is ItemBasketball) return player.RightHandItemSlot;
+                if (player.LeftHandItemSlot?.Itemstack?.Item is ItemBasketball) return player.LeftHandItemSlot;
             }
             catch
             {
