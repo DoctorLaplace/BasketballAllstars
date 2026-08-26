@@ -159,6 +159,10 @@ namespace BasketballAllstars.Systems
             }
         }
 
+        private static ILoadedSound? ambientRumbleSound;
+        private static ILoadedSound? electricalClashSound;
+        private static ILoadedSound? latentEnergySound;
+
         public static void PlayClashStartSounds(IWorldAccessor world, Vec3d clashPos)
         {
             // Parry collide plays when slamming into the other player mid dunk and beginning the clash, made mid to low quiet
@@ -170,36 +174,86 @@ namespace BasketballAllstars.Systems
                 40f,
                 0.45f
             );
+        }
 
-            // Ambient rumble while clashing that can be heard from very far away
-            world.PlaySoundAt(
-                new AssetLocation("basketballallstars:sounds/ambientrumble"),
-                clashPos.X, clashPos.Y, clashPos.Z,
-                null,
-                false,
-                90f,
-                0.80f
-            );
+        public static void StartClashLoopingSounds(ICoreClientAPI capi, Vec3d clashPos)
+        {
+            StopClashLoopingSounds();
 
-            // Electric clash quietly plays while clashed
-            world.PlaySoundAt(
-                new AssetLocation("basketballallstars:sounds/electricalclash"),
-                clashPos.X, clashPos.Y, clashPos.Z,
-                null,
-                false,
-                36f,
-                0.32f
-            );
+            try
+            {
+                var soundPos = new Vec3f((float)clashPos.X, (float)clashPos.Y, (float)clashPos.Z);
 
-            // Latent energy plays while clashed
-            world.PlaySoundAt(
-                new AssetLocation("basketballallstars:sounds/latentenergy"),
-                clashPos.X, clashPos.Y, clashPos.Z,
-                null,
-                false,
-                42f,
-                0.45f
-            );
+                // Ambient rumble while clashing that can be heard from very far away
+                ambientRumbleSound = capi.World.LoadSound(new SoundParams
+                {
+                    Location = new AssetLocation("basketballallstars:sounds/ambientrumble"),
+                    Position = soundPos,
+                    ShouldLoop = true,
+                    DisposeOnFinish = false,
+                    Volume = 0.85f,
+                    Range = 90f
+                });
+
+                // Electric clash quietly plays while clashed
+                electricalClashSound = capi.World.LoadSound(new SoundParams
+                {
+                    Location = new AssetLocation("basketballallstars:sounds/electricalclash"),
+                    Position = soundPos,
+                    ShouldLoop = true,
+                    DisposeOnFinish = false,
+                    Volume = 0.35f,
+                    Range = 36f
+                });
+
+                // Latent energy plays while clashed
+                latentEnergySound = capi.World.LoadSound(new SoundParams
+                {
+                    Location = new AssetLocation("basketballallstars:sounds/latentenergy"),
+                    Position = soundPos,
+                    ShouldLoop = true,
+                    DisposeOnFinish = false,
+                    Volume = 0.45f,
+                    Range = 42f
+                });
+
+                ambientRumbleSound?.Start();
+                electricalClashSound?.Start();
+                latentEnergySound?.Start();
+            }
+            catch
+            {
+                // Ignored if sound driver issues
+            }
+        }
+
+        public static void StopClashLoopingSounds()
+        {
+            try
+            {
+                if (ambientRumbleSound != null)
+                {
+                    ambientRumbleSound.FadeOutAndStop(0.2f);
+                    ambientRumbleSound.Dispose();
+                    ambientRumbleSound = null;
+                }
+                if (electricalClashSound != null)
+                {
+                    electricalClashSound.FadeOutAndStop(0.2f);
+                    electricalClashSound.Dispose();
+                    electricalClashSound = null;
+                }
+                if (latentEnergySound != null)
+                {
+                    latentEnergySound.FadeOutAndStop(0.2f);
+                    latentEnergySound.Dispose();
+                    latentEnergySound = null;
+                }
+            }
+            catch
+            {
+                // Ignored
+            }
         }
 
         public static void PlayParryHitSound(IWorldAccessor world, Vec3d pos)

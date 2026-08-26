@@ -59,7 +59,7 @@ namespace BasketballAllstars.Gui
             {
                 originalMouseYaw = capi.Input.MouseYaw;
                 originalMousePitch = capi.Input.MousePitch;
-                capi.Input.MousePitch = -0.55f; // Angled down from above (negative pitch looks down)
+                capi.Input.MousePitch = 0.55f; // Angled down from above (positive pitch tilts camera down looking from above)
                 cameraOverridden = true;
 
                 // If currently in FirstPerson, switch to 3rd person perspective
@@ -74,15 +74,6 @@ namespace BasketballAllstars.Gui
                             break;
                         }
                     }
-                }
-
-                // Move camera further back and slightly higher
-                if (capi.Render?.CameraOffset != null)
-                {
-                    originalCameraOffsetZ = capi.Render.CameraOffset.Translation.Z;
-                    originalCameraOffsetY = capi.Render.CameraOffset.Translation.Y;
-                    capi.Render.CameraOffset.Translation.Z -= 4.0f;
-                    capi.Render.CameraOffset.Translation.Y += 1.5f;
                 }
             }
 
@@ -115,6 +106,18 @@ namespace BasketballAllstars.Gui
             SingleComposer.Compose();
         }
 
+        private static (double r, double g, double b) GetArrowColor(byte dir)
+        {
+            return dir switch
+            {
+                0 => (1.0, 0.22, 0.22),  // Up: Red
+                1 => (1.0, 0.90, 0.15),  // Right: Yellow
+                2 => (0.20, 0.60, 1.0),  // Down: Blue
+                3 => (0.20, 0.95, 0.35), // Left: Green
+                _ => (1.0, 1.0, 1.0)
+            };
+        }
+
         private void DrawArrowStrip(Context ctx, ImageSurface surface, ElementBounds currentBounds)
         {
             double w = currentBounds.InnerWidth;
@@ -130,6 +133,8 @@ namespace BasketballAllstars.Gui
 
                 if (slotX < -40 || slotX > w + 40) continue;
 
+                var (dirR, dirG, dirB) = GetArrowColor(dir);
+
                 if (i < myProgress)
                 {
                     // Completed Arrow: Sleek vibrant green
@@ -144,21 +149,20 @@ namespace BasketballAllstars.Gui
                     }
                     else
                     {
-                        // Active Current Arrow: Glowing crisp white in center, slightly enlarged
-                        // Soft subtle glow background circle
+                        // Active Current Arrow: Glowing in its assigned color in center
                         ctx.Save();
-                        ctx.Arc(slotX, centerY, 24.0, 0, Math.PI * 2.0);
-                        ctx.SetSourceRGBA(1.0, 0.88, 0.20, 0.25);
+                        ctx.Arc(slotX, centerY, 26.0, 0, Math.PI * 2.0);
+                        ctx.SetSourceRGBA(dirR, dirG, dirB, 0.30);
                         ctx.Fill();
                         ctx.Restore();
 
-                        DrawArrowIcon(ctx, slotX, centerY, dir, 1.25, 1.0, 1.0, 1.0, 1.0);
+                        DrawArrowIcon(ctx, slotX, centerY, dir, 1.28, dirR, dirG, dirB, 1.0);
                     }
                 }
                 else
                 {
-                    // Upcoming Arrows: Semi-transparent sleek slate white
-                    DrawArrowIcon(ctx, slotX, centerY, dir, 0.95, 0.82, 0.88, 0.95, 0.38);
+                    // Queued Upcoming Arrows: High visibility in assigned directional color
+                    DrawArrowIcon(ctx, slotX, centerY, dir, 1.05, dirR, dirG, dirB, 0.85);
                 }
             }
         }
@@ -271,7 +275,7 @@ namespace BasketballAllstars.Gui
             if (cameraOverridden && !isFinished)
             {
                 capi.Input.MouseYaw += deltaTime * 1.5f;
-                capi.Input.MousePitch = -0.55f;
+                capi.Input.MousePitch = 0.55f;
             }
 
             // Smooth sliding animation of the arrow strip towards current arrow
@@ -294,6 +298,9 @@ namespace BasketballAllstars.Gui
 
         public override void OnGuiClosed()
         {
+            // Ensure clash looping audio is halted
+            BasketballAudioParticles.StopClashLoopingSounds();
+
             // Restore original camera angles, offset, and perspective
             if (cameraOverridden && capi.World.Player != null)
             {

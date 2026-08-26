@@ -110,13 +110,17 @@ namespace BasketballAllstars.Systems
 
             if (traj.IsSuspended)
             {
-                // Wild spinning and sparking during air clash duel
-                float clashSpin = (float)((entityPlayer.World.ElapsedMilliseconds / 1000.0) * GameMath.TWOPI * 3.5);
-                entityPlayer.BodyYaw = clashSpin;
-                entityPlayer.WalkYaw = clashSpin;
-                entityPlayer.Pos.Yaw = clashSpin;
-                entityPlayer.Pos.Roll = (float)(Math.Sin(clashSpin) * 0.45);
-                entityPlayer.WalkPitch = (float)(Math.Cos(clashSpin) * 0.45);
+                // Hold pose facing the clash direction and violently vibrate
+                double time = (entityPlayer.World.ElapsedMilliseconds / 1000.0) * 45.0;
+                float jitterYaw = (float)(Math.Sin(time * 1.3) * 0.045 + Math.Cos(time * 2.1) * 0.025);
+                float jitterPitch = (float)(Math.Cos(time * 1.7) * 0.04);
+                float jitterRoll = (float)(Math.Sin(time * 1.9) * 0.05);
+
+                entityPlayer.BodyYaw = traj.FlightYaw + jitterYaw;
+                entityPlayer.WalkYaw = traj.FlightYaw + jitterYaw;
+                entityPlayer.Pos.Yaw = traj.FlightYaw + jitterYaw;
+                entityPlayer.Pos.Roll = jitterRoll;
+                entityPlayer.WalkPitch = jitterPitch;
 
                 // Timed spurts of directional plume spark bursts
                 if (entityPlayer.World.Side == EnumAppSide.Client && (entityPlayer.World.ElapsedMilliseconds % 280 < 30))
@@ -460,7 +464,11 @@ namespace BasketballAllstars.Systems
 
                 if (traj.IsSuspended)
                 {
-                    player.Entity.Pos.SetPos(traj.SuspendedPos);
+                    double vTime = (player.Entity.World.ElapsedMilliseconds / 1000.0) * 45.0;
+                    double vibX = Math.Sin(vTime * 1.5) * 0.045 + Math.Cos(vTime * 2.7) * 0.025;
+                    double vibY = Math.Cos(vTime * 1.8) * 0.04 + Math.Sin(vTime * 2.2) * 0.02;
+                    double vibZ = Math.Sin(vTime * 1.9) * 0.045 + Math.Cos(vTime * 1.3) * 0.025;
+                    player.Entity.Pos.SetPos(traj.SuspendedPos.AddCopy(vibX, vibY, vibZ));
                     player.Entity.Pos.Motion.Set(0, 0, 0);
                     player.Entity.ServerControls.Gliding = true;
                     player.Entity.ServerControls.IsFlying = true;
@@ -631,7 +639,11 @@ namespace BasketballAllstars.Systems
 
                 if (traj.IsSuspended)
                 {
-                    player.Entity.Pos.SetPos(traj.SuspendedPos);
+                    double vTime = (player.Entity.World.ElapsedMilliseconds / 1000.0) * 45.0;
+                    double vibX = Math.Sin(vTime * 1.5) * 0.045 + Math.Cos(vTime * 2.7) * 0.025;
+                    double vibY = Math.Cos(vTime * 1.8) * 0.04 + Math.Sin(vTime * 2.2) * 0.02;
+                    double vibZ = Math.Sin(vTime * 1.9) * 0.045 + Math.Cos(vTime * 1.3) * 0.025;
+                    player.Entity.Pos.SetPos(traj.SuspendedPos.AddCopy(vibX, vibY, vibZ));
                     player.Entity.Pos.Motion.Set(0, 0, 0);
                     player.Entity.Controls.Gliding = true;
                     player.Entity.Controls.IsFlying = true;

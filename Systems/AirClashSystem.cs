@@ -312,7 +312,15 @@ namespace BasketballAllstars.Systems
             if (api is not ICoreClientAPI capi) return;
             DunkTrajectorySystem.ClientInstance?.SuspendTrajectory(msg.DunkerUid, msg.ClashPos);
             DunkTrajectorySystem.ClientInstance?.SuspendTrajectory(msg.InterceptorUid, msg.ClashPos.AddCopy(0.3, 0, 0.3));
-            GuiDialogAirClashQTE.OpenDuel(capi, msg);
+
+            // Start looping rumble, electrical clash, and latent energy sounds
+            BasketballAudioParticles.StartClashLoopingSounds(capi, msg.ClashPos);
+
+            // Only open QTE GUI if local player is one of the duel participants
+            if (capi.World.Player?.PlayerUID == msg.DunkerUid || capi.World.Player?.PlayerUID == msg.InterceptorUid)
+            {
+                GuiDialogAirClashQTE.OpenDuel(capi, msg);
+            }
         }
 
         public void OnClientClashProgress(AirClashDuelProgressSyncMessage msg)
@@ -322,6 +330,9 @@ namespace BasketballAllstars.Systems
 
         public void OnClientClashResult(AirClashResultMessage msg)
         {
+            // Stop clash looping sounds immediately when clash ends
+            BasketballAudioParticles.StopClashLoopingSounds();
+
             if (msg.DunkerWon)
             {
                 DunkTrajectorySystem.ClientInstance?.CancelTrajectory(msg.LoserUid);
