@@ -16,6 +16,7 @@ namespace BasketballAllstars.Systems
         public int DuelId { get; set; }
         public string DunkerUid { get; set; } = "";
         public string InterceptorUid { get; set; } = "";
+        public Queue<string> QueuedInterceptorUids { get; } = new();
         public Vec3d ClashPos { get; set; } = new Vec3d();
         public byte[] QTESequence { get; set; } = Array.Empty<byte>();
         public int DunkerProgress { get; set; } = 0;
@@ -48,11 +49,23 @@ namespace BasketballAllstars.Systems
             }
         }
 
+        public ActiveAirClashDuel? GetDuelForDunker(string dunkerUid)
+        {
+            foreach (var duel in activeDuels.Values)
+            {
+                if (!duel.IsFinished && duel.DunkerUid == dunkerUid)
+                {
+                    return duel;
+                }
+            }
+            return null;
+        }
+
         public bool IsPlayerInDuel(string playerUid)
         {
             foreach (var duel in activeDuels.Values)
             {
-                if (!duel.IsFinished && (duel.DunkerUid == playerUid || duel.InterceptorUid == playerUid))
+                if (!duel.IsFinished && (duel.DunkerUid == playerUid || duel.InterceptorUid == playerUid || duel.QueuedInterceptorUids.Contains(playerUid)))
                 {
                     return true;
                 }
@@ -77,24 +90,53 @@ namespace BasketballAllstars.Systems
                 if (otherPlayer.PlayerUID == triggeringPlayer.PlayerUID || otherPlayer.Entity == null) continue;
 
                 var otherTraj = DunkTrajectorySystem.Instance?.GetActiveTrajectory(otherPlayer.PlayerUID);
-                if (otherTraj == null || otherTraj.IsSuspended) continue;
+                if (otherTraj == null) continue;
 
-                // One must be the dunker, the other the interceptor
-                if (myTraj.IsDunk && !otherTraj.IsDunk)
+                // Case 1: triggeringPlayer is an unsuspended interceptor targeting a dunker
+                if (!myTraj.IsDunk && otherTraj.IsDunk)
+                {
+                    if (otherTraj.IsSuspended)
+                    {
+                        // Dunker is already in an active duel: queue this interceptor!
+                        var existingDuel = GetDuelForDunker(otherPlayer.PlayerUID);
+                        if (existingDuel != null && !existingDuel.IsFinished && !existingDuel.QueuedInterceptorUids.Contains(triggeringPlayer.PlayerUID))
+                        {
+                            double dist = playerPos.DistanceTo(existingDuel.ClashPos);
+                            if (dist < 3.0)
+                            {
+                                // Suspend this interceptor at clash perimeter and queue them
+                                double offsetAngle = (existingDuel.QueuedInterceptorUids.Count + 1) * (GameMath.PI * 0.5);
+                                Vec3d queueOffset = new Vec3d(Math.Cos(offsetAngle) * 0.75, 0, Math.Sin(offsetAngle) * 0.75);
+                                DunkTrajectorySystem.Instance?.SuspendTrajectory(triggeringPlayer.PlayerUID, existingDuel.ClashPos.AddCopy(queueOffset));
+                                existingDuel.QueuedInterceptorUids.Enqueue(triggeringPlayer.PlayerUID);
+
+                                // Steal immunity during clash queue
+                                BasketballGameState.ServerInstance?.SetPlayerImmunity(otherPlayer.PlayerUID, triggeringPlayer.PlayerUID, 15000.0);
+
+                                BasketballAudioParticles.PlayParryHitSound(api.World, existingDuel.ClashPos);
+                                BasketballAudioParticles.SpawnClashSparks(api.World, existingDuel.ClashPos);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Fresh clash
+                        double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(playerPos);
+                        if (dist < 2.5)
+                        {
+                            StartAirClash(otherPlayer, triggeringPlayer, playerPos);
+                            break;
+                        }
+                    }
+                }
+                // Case 2: triggeringPlayer is an unsuspended dunker colliding with an unsuspended interceptor
+                else if (myTraj.IsDunk && !otherTraj.IsDunk && !otherTraj.IsSuspended)
                 {
                     double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(playerPos);
                     if (dist < 2.5)
                     {
                         StartAirClash(triggeringPlayer, otherPlayer, playerPos);
-                        break;
-                    }
-                }
-                else if (!myTraj.IsDunk && otherTraj.IsDunk)
-                {
-                    double dist = otherPlayer.Entity.Pos.XYZ.DistanceTo(playerPos);
-                    if (dist < 2.5)
-                    {
-                        StartAirClash(otherPlayer, triggeringPlayer, playerPos);
                         break;
                     }
                 }
@@ -200,8 +242,6 @@ namespace BasketballAllstars.Systems
         private void ResolveDuel(ActiveAirClashDuel duel, bool winnerIsDunker)
         {
             if (duel.IsFinished) return;
-            duel.IsFinished = true;
-            activeDuels.Remove(duel.DuelId);
 
             if (api is not ICoreServerAPI sapi) return;
 
@@ -243,7 +283,7 @@ namespace BasketballAllstars.Systems
 
             if (winnerIsDunker)
             {
-                // Dunker won the clash! Deflect interceptor back in the opposite angle they came from and resume dunk
+                // Dunker won the clash against current interceptor!
                 DunkTrajectorySystem.Instance?.CancelTrajectory(duel.InterceptorUid);
 
                 if (interceptor?.Entity != null)
@@ -252,7 +292,65 @@ namespace BasketballAllstars.Systems
                     interceptor.Entity.Pos.Motion.Set(interceptorOriginDir.X * 0.85, 0.40, interceptorOriginDir.Z * 0.85);
                 }
 
-                // Resume dunker trajectory to finish the slam
+                // Apply 1 second of lingering steal immunity between dunker and defeated interceptor
+                BasketballGameState.ServerInstance?.SetPlayerImmunity(duel.DunkerUid, duel.InterceptorUid, 1000.0);
+
+                // Notify defeated interceptor
+                if (interceptor != null)
+                {
+                    serverChannel?.SendPacket(new AirClashResultMessage
+                    {
+                        DuelId = duel.DuelId,
+                        WinnerUid = duel.DunkerUid,
+                        LoserUid = duel.InterceptorUid,
+                        DunkerWon = true,
+                        ClashPos = duel.ClashPos
+                    }, interceptor);
+                }
+
+                // Check if there are queued interceptors waiting in line!
+                while (duel.QueuedInterceptorUids.Count > 0)
+                {
+                    string nextUid = duel.QueuedInterceptorUids.Dequeue();
+                    IServerPlayer? nextInterceptor = sapi.World.PlayerByUid(nextUid) as IServerPlayer;
+                    if (nextInterceptor?.Entity == null || !nextInterceptor.Entity.Alive) continue;
+
+                    // Engage next interceptor in queue!
+                    duel.InterceptorUid = nextUid;
+                    byte[] newSeq = new byte[5];
+                    for (int i = 0; i < newSeq.Length; i++)
+                    {
+                        newSeq[i] = (byte)rand.Next(0, 4);
+                    }
+                    duel.QTESequence = newSeq;
+                    duel.DunkerProgress = 0;
+                    duel.InterceptorProgress = 0;
+                    duel.StartTimeMs = api.World.ElapsedMilliseconds;
+
+                    // Audio & visual cues for the next round
+                    BasketballAudioParticles.PlayClashStartSounds(api.World, duel.ClashPos);
+                    BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos);
+
+                    var nextStartMsg = new AirClashStartMessage
+                    {
+                        DuelId = duel.DuelId,
+                        DunkerUid = duel.DunkerUid,
+                        InterceptorUid = duel.InterceptorUid,
+                        QTESequence = newSeq,
+                        ClashPos = duel.ClashPos
+                    };
+
+                    if (dunker != null) serverChannel?.SendPacket(nextStartMsg, dunker);
+                    serverChannel?.SendPacket(nextStartMsg, nextInterceptor);
+
+                    // Dunker remains suspended to fight the next defender!
+                    return;
+                }
+
+                // No more queued defenders: All defenders defeated! Resume dunker trajectory to finish the slam
+                duel.IsFinished = true;
+                activeDuels.Remove(duel.DuelId);
+
                 DunkTrajectorySystem.Instance?.ResumeTrajectory(duel.DunkerUid);
 
                 serverChannel?.BroadcastPacket(new AirClashResultMessage
@@ -267,6 +365,9 @@ namespace BasketballAllstars.Systems
             else
             {
                 // Interceptor won the clash! Steal ball and throw dunker in the direction interceptor came from
+                duel.IsFinished = true;
+                activeDuels.Remove(duel.DuelId);
+
                 BasketballAudioParticles.SpawnClashSparks(api.World, duel.ClashPos.AddCopy(0, 0.5, 0));
 
                 // Transfer ball to interceptor
@@ -289,6 +390,13 @@ namespace BasketballAllstars.Systems
                     interceptor.Entity.Pos.Motion.Set(0, -0.15, 0);
                 }
 
+                // Safely cancel and release any remaining queued defenders
+                while (duel.QueuedInterceptorUids.Count > 0)
+                {
+                    string queuedUid = duel.QueuedInterceptorUids.Dequeue();
+                    DunkTrajectorySystem.Instance?.CancelTrajectory(queuedUid);
+                }
+
                 serverChannel?.BroadcastPacket(new AirClashResultMessage
                 {
                     DuelId = duel.DuelId,
@@ -297,10 +405,9 @@ namespace BasketballAllstars.Systems
                     DunkerWon = false,
                     ClashPos = duel.ClashPos
                 });
-            }
 
-            // Apply 1 second of lingering steal immunity between the two clashing players
-            BasketballGameState.ServerInstance?.SetPlayerImmunity(duel.DunkerUid, duel.InterceptorUid, 1000.0);
+                BasketballGameState.ServerInstance?.SetPlayerImmunity(duel.DunkerUid, duel.InterceptorUid, 1000.0);
+            }
         }
 
         // ========================================================================
