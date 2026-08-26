@@ -399,7 +399,7 @@ namespace BasketballAllstars.Entities
             base.OnInteract(byEntity, slot, hitPosition, mode);
             if (!Collectible) return;
 
-            if (byEntity is EntityPlayer entityPlayer && entityPlayer.Player is IServerPlayer sPlayer)
+            if (byEntity is EntityPlayer entityPlayer)
             {
                 long noPickupUntil = entityPlayer.Attributes.GetLong("basketballNoPickupUntilMs", 0);
                 if (noPickupUntil > World.ElapsedMilliseconds) return;
@@ -407,9 +407,12 @@ namespace BasketballAllstars.Entities
                 var dunkSys = DunkTrajectorySystem.Get(World.Side);
                 if (dunkSys != null && dunkSys.IsPlayerInTrajectory(entityPlayer.PlayerUID, out _)) return;
 
-                // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
-                byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
-                TryCollect(sPlayer);
+                if (entityPlayer.Player is IServerPlayer sPlayer)
+                {
+                    // 0.5s grace period: prevents accidental throw upon releasing right-click used to pick up the ball off the ground
+                    byEntity.Attributes.SetLong("basketballPickupNoThrowUntilMs", World.ElapsedMilliseconds + 500);
+                    TryCollect(sPlayer);
+                }
             }
         }
 
@@ -421,14 +424,11 @@ namespace BasketballAllstars.Entities
             if (timeSinceLaunch < 80) return;
 
             // 1. Practice Dummy catch: can receive passes/shots up to dummy height + 10%
-            Entity? nearestDummy = World.GetNearestEntity(Pos.XYZ.AddCopy(0, -1.0, 0), 1.25f, 1.15f, e => e is EntityBasketballDummy dummy && dummy.Alive && !dummy.HasBall);
+            Entity? nearestDummy = World.GetNearestEntity(Pos.XYZ, 1.5f, 2.2f, e => e is EntityBasketballDummy dummy && dummy.Alive && !dummy.HasBall);
             if (nearestDummy is EntityBasketballDummy targetDummy)
             {
-                double dummyHeight = targetDummy.CollisionBox?.Y2 ?? 1.85;
-                double maxDummyHeight = dummyHeight * 1.10;
                 double relDummyY = Pos.Y - targetDummy.Pos.Y;
-
-                if (relDummyY >= -0.10 && relDummyY <= maxDummyHeight)
+                if (relDummyY >= -0.30 && relDummyY <= 2.20)
                 {
                     targetDummy.CatchBall();
                     Die(EnumDespawnReason.PickedUp);
@@ -437,8 +437,7 @@ namespace BasketballAllstars.Entities
             }
 
             // 2. Player receiving catch (in-flight passes, rebounds, and ground pickups)
-            // Calibrated strictly to player height + 10% (feet up to ~2.04m)
-            EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ.AddCopy(0, -1.02, 0), 1.15f, 1.10f, e => {
+            EntityPlayer? nearestPlayer = World.GetNearestEntity(Pos.XYZ, 1.6f, 2.4f, e => {
                 if (e is not EntityPlayer ep || !ep.Alive) return false;
                 long noPickupUntil = ep.Attributes.GetLong("basketballNoPickupUntilMs", 0);
                 if (noPickupUntil > World.ElapsedMilliseconds) return false;
@@ -451,11 +450,8 @@ namespace BasketballAllstars.Entities
 
             if (nearestPlayer?.Player is IServerPlayer sPlayer)
             {
-                double playerHeight = nearestPlayer.CollisionBox?.Y2 ?? 1.85;
-                double maxCatchHeight = playerHeight * 1.10;
                 double relY = Pos.Y - nearestPlayer.Pos.Y;
-
-                if (relY >= -0.10 && relY <= maxCatchHeight)
+                if (relY >= -0.35 && relY <= 2.30)
                 {
                     bool isThrower = FiredBy != null && FiredBy.EntityId == nearestPlayer.EntityId;
 
@@ -465,8 +461,8 @@ namespace BasketballAllstars.Entities
                         TryCollect(sPlayer);
                         return;
                     }
-                    // If thrown by self: catch on rebound, slow speed, or after 320ms in flight
-                    else if (isThrower && (timeSinceLaunch > 320 || Pos.Motion.Length() < 0.25 || beforeCollided))
+                    // If thrown by self: catch on rebound, ground landing, slow speed, or after 250ms in flight
+                    else if (isThrower && (timeSinceLaunch > 250 || OnGround || beforeCollided || Pos.Motion.Length() < 0.30))
                     {
                         TryCollect(sPlayer);
                         return;
@@ -490,7 +486,13 @@ namespace BasketballAllstars.Entities
             if (ballItem != null)
             {
                 ItemStack stack = ProjectileStack ?? new ItemStack(ballItem, 1);
-                if (player.InventoryManager.TryGiveItemstack(stack, true))
+                bool collected = player.InventoryManager?.TryGiveItemstack(stack, true) == true;
+                if (!collected && player.Entity != null)
+                {
+                    collected = player.Entity.TryGiveItemStack(stack);
+                }
+
+                if (collected)
                 {
                     BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
                     Die(EnumDespawnReason.PickedUp);

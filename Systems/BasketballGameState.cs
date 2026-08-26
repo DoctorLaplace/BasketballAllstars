@@ -271,11 +271,19 @@ namespace BasketballAllstars.Systems
             if (player == null) return false;
             try
             {
-                IPlayer? p = player.World?.PlayerByUid(player.PlayerUID);
-                if (p?.InventoryManager == null) return false;
+                var rightStack = player.RightHandItemSlot?.Itemstack;
+                if (rightStack?.Item is ItemBasketball || rightStack?.Collectible?.Code?.Path == "basketball") return true;
 
-                return player.RightHandItemSlot?.Itemstack?.Item is ItemBasketball ||
-                       player.LeftHandItemSlot?.Itemstack?.Item is ItemBasketball;
+                var leftStack = player.LeftHandItemSlot?.Itemstack;
+                if (leftStack?.Item is ItemBasketball || leftStack?.Collectible?.Code?.Path == "basketball") return true;
+
+                // Fallback to active hotbar slot
+                if (player.Player?.InventoryManager?.ActiveHotbarSlot?.Itemstack is ItemStack activeStack)
+                {
+                    if (activeStack.Item is ItemBasketball || activeStack.Collectible?.Code?.Path == "basketball") return true;
+                }
+
+                return false;
             }
             catch
             {
@@ -322,11 +330,19 @@ namespace BasketballAllstars.Systems
             if (player == null) return null;
             try
             {
-                IPlayer? p = player.World?.PlayerByUid(player.PlayerUID);
-                if (p?.InventoryManager == null) return null;
+                var rightStack = player.RightHandItemSlot?.Itemstack;
+                if (rightStack?.Item is ItemBasketball || rightStack?.Collectible?.Code?.Path == "basketball")
+                    return player.RightHandItemSlot;
 
-                if (player.RightHandItemSlot?.Itemstack?.Item is ItemBasketball) return player.RightHandItemSlot;
-                if (player.LeftHandItemSlot?.Itemstack?.Item is ItemBasketball) return player.LeftHandItemSlot;
+                var leftStack = player.LeftHandItemSlot?.Itemstack;
+                if (leftStack?.Item is ItemBasketball || leftStack?.Collectible?.Code?.Path == "basketball")
+                    return player.LeftHandItemSlot;
+
+                if (player.Player?.InventoryManager?.ActiveHotbarSlot?.Itemstack is ItemStack activeStack)
+                {
+                    if (activeStack.Item is ItemBasketball || activeStack.Collectible?.Code?.Path == "basketball")
+                        return player.Player.InventoryManager.ActiveHotbarSlot;
+                }
             }
             catch
             {
