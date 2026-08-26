@@ -466,8 +466,8 @@ namespace BasketballAllstars.Entities
                             TryCollect(sPlayer);
                             return;
                         }
-                        // If thrown by self: catch on rebound, ground landing, slow speed, or after 250ms in flight
-                        else if (isThrower && (timeSinceLaunch > 250 || OnGround || beforeCollided || Pos.Motion.Length() < 0.30))
+                        // If thrown by self: catch on rebound, ground landing, slow speed, or after 150ms in flight
+                        else if (isThrower && (timeSinceLaunch > 150 || OnGround || beforeCollided || Pos.Motion.Length() < 0.35))
                         {
                             TryCollect(sPlayer);
                             return;
@@ -479,30 +479,32 @@ namespace BasketballAllstars.Entities
 
         private void TryCollect(IServerPlayer player)
         {
-            if (player?.Entity != null)
-            {
-                long noPickupUntil = player.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
-                if (noPickupUntil > World.ElapsedMilliseconds) return;
+            if (player?.Entity == null || !player.Entity.Alive) return;
 
-                var dunkSys = DunkTrajectorySystem.Get(World.Side);
-                if (dunkSys != null && dunkSys.IsPlayerInTrajectory(player.PlayerUID, out _)) return;
+            long noPickupUntil = player.Entity.Attributes.GetLong("basketballNoPickupUntilMs", 0);
+            if (noPickupUntil > World.ElapsedMilliseconds) return;
+
+            var dunkSys = DunkTrajectorySystem.Get(World.Side);
+            if (dunkSys != null && dunkSys.IsPlayerInTrajectory(player.PlayerUID, out _)) return;
+
+            ItemStack stack = ProjectileStack?.Clone() ?? new ItemStack(World.GetItem(new AssetLocation("basketballallstars:basketball")), 1);
+            stack.ResolveBlockOrItem(World);
+
+            bool collected = player.InventoryManager?.TryGiveItemstack(stack, true) == true;
+            if (!collected && player.Entity != null)
+            {
+                collected = player.Entity.TryGiveItemStack(stack);
             }
 
-            Item ballItem = World.GetItem(new AssetLocation("basketballallstars:basketball"));
-            if (ballItem != null)
+            if (collected)
             {
-                ItemStack stack = ProjectileStack ?? new ItemStack(ballItem, 1);
-                bool collected = player.InventoryManager?.TryGiveItemstack(stack, true) == true;
-                if (!collected && player.Entity != null)
-                {
-                    collected = player.Entity.TryGiveItemStack(stack);
-                }
-
-                if (collected)
-                {
-                    BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
-                    Die(EnumDespawnReason.PickedUp);
-                }
+                BasketballAudioParticles.PlayCatchOrPickupSound(World, Pos.XYZ);
+                Die(EnumDespawnReason.PickedUp);
+            }
+            else
+            {
+                World.SpawnItemEntity(stack, Pos.XYZ);
+                Die(EnumDespawnReason.PickedUp);
             }
         }
 

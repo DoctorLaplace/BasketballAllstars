@@ -177,7 +177,7 @@ namespace BasketballAllstars.Systems
 
         public void StartDunkTrajectory(IServerPlayer player, BlockPos hoopPos, float charge, int requestedStyle = -1, int requestedRevs = -1)
         {
-            if (player.Entity == null || !player.Entity.Alive || !player.Entity.OnGround || charge < 0.50f) return;
+            if (player.Entity == null || !player.Entity.Alive || charge < 0.40f) return;
 
             Block block = api.World.BlockAccessor.GetBlock(hoopPos);
             if (block is not BlockHoop hoopBlock) return;
@@ -201,8 +201,6 @@ namespace BasketballAllstars.Systems
 
             // Flight yaw points directly into the rim center from takeoff
             float flightYaw = (float)Math.Atan2(rimCenter.X - startPos.X, rimCenter.Z - startPos.Z);
-
-            if (activeTrajectories.ContainsKey(player.PlayerUID)) return;
 
             double distance = startPos.DistanceTo(rimCenter);
             float duration = (float)Math.Clamp(distance / 6.0, 0.9, 2.5);
@@ -1001,11 +999,11 @@ namespace BasketballAllstars.Systems
                             Vec3d rimCenter = hoopBlock.GetRimCenter(checkPos);
                             Vec3d toHoop = rimCenter.SubCopy(eyePos);
                             double dist = toHoop.Length();
-                            if (dist > 1.8 && dist <= 20.0)
+                            if (dist > 1.5 && dist <= 22.0)
                             {
                                 Vec3d dirToHoop = toHoop.Normalize();
                                 double dot = lookVec.Dot(dirToHoop);
-                                if (dot > 0.78 && dot > bestScore)
+                                if (dot > 0.65 && dot > bestScore)
                                 {
                                     bestScore = dot;
                                     bestHoop = checkPos;
